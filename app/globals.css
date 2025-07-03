@@ -1,26 +1,309 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Custom animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
+
+@keyframes ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+@keyframes shimmer { 
+  from { transform: translateX(-100%); } 
+  to { transform: translateX(100%); } 
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slideRight {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(200%); }
+}
+
+@keyframes scan {
+  from { transform: translateX(-100%) skewX(-12deg); }
+  to { transform: translateX(200%) skewX(-12deg); }
+}
+
+@keyframes loadingProgress {
+  0% { width: 0%; }
+  50% { width: 80%; }
+  100% { width: 100%; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-pulse-slower { animation: pulse 5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-ping-slow { animation: ping 3s cubic-bezier(0, 0, 0.2, 1) infinite; }
+.animate-ping-slower { animation: ping 5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+.animate-shimmer-slow { animation: shimmer 4s linear infinite; }
+.animate-fade-in { animation: fadeIn 0.7s ease; }
+.animate-fade-in-slow { animation: fadeIn 1.2s ease; }
+
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.625rem;
+  /* TechZone Theme - 60% Black, 30% Yellow (#FFEF00), 10% White */
+  --background: 0 0% 8%;                    /* Rich black background (60%) */
+  --foreground: 0 0% 98%;                   /* White text (10%) */
+  --card: 0 0% 12%;                         /* Slightly lighter black for cards */
+  --card-foreground: 0 0% 98%;              /* White text on cards */
+  --popover: 0 0% 10%;                      /* Dark popover background */
+  --popover-foreground: 0 0% 98%;           /* White popover text */
+  /* Vibrant yellow primary (#FFEF00) - 30% */
+  --primary: 60 100% 50%;                   /* Pure yellow #FFEF00 */
+  --primary-foreground: 0 0% 8%;            /* Black text on yellow */
+  --secondary: 0 0% 15%;                    /* Dark secondary */
+  --secondary-foreground: 0 0% 98%;         /* White secondary text */
+  --muted: 0 0% 20%;                        /* Muted dark */
+  --muted-foreground: 0 0% 70%;             /* Light gray muted text */
+  --accent: 60 100% 50%;                    /* Yellow accent */
+  --accent-foreground: 0 0% 8%;             /* Black on yellow accent */
+  --destructive: 0 84.2% 60.2%;             /* Red for destructive actions */
+  --destructive-foreground: 0 0% 98%;       /* White on red */
+  --border: 0 0% 25%;                       /* Dark gray borders */
+  --input: 0 0% 12%;                        /* Dark input backgrounds */
+  --ring: 60 100% 50%;                      /* Yellow focus rings */
+  --chart-1: 60 100% 50%;                   /* Yellow charts */
+  --chart-2: 120 100% 35%;                  /* Green */
+  --chart-3: 240 100% 60%;                  /* Blue */
+  --chart-4: 300 100% 60%;                  /* Purple */
+  --chart-5: 30 100% 60%;                   /* Orange */
+  --sidebar: 0 0% 6%;                       /* Darker sidebar */
+  --sidebar-foreground: 0 0% 98%;           /* White sidebar text */
+  --sidebar-primary: 60 100% 50%;           /* Yellow sidebar primary */
+  --sidebar-primary-foreground: 0 0% 8%;    /* Black on yellow */
+  --sidebar-accent: 0 0% 18%;               /* Dark sidebar accent */
+  --sidebar-accent-foreground: 0 0% 98%;    /* White accent text */
+  --sidebar-border: 0 0% 25%;               /* Gray sidebar border */
+  --sidebar-ring: 60 100% 50%;              /* Yellow sidebar ring */
+}
+
+.dark {
+  /* Keep the same TechZone theme for dark mode - 60% Black, 30% Yellow, 10% White */
+  --background: 0 0% 8%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 12%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 10%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 60 100% 50%;
+  --primary-foreground: 0 0% 8%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 20%;
+  --muted-foreground: 0 0% 70%;
+  --accent: 60 100% 50%;
+  --accent-foreground: 0 0% 8%;
+  --destructive: 0 84.2% 60.2%;
+  --border: 0 0% 25%;
+  --input: 0 0% 12%;
+  --ring: 60 100% 50%;
+  --chart-1: 60 100% 50%;
+  --chart-2: 120 100% 35%;
+  --chart-3: 240 100% 60%;
+  --chart-4: 300 100% 60%;
+  --chart-5: 30 100% 60%;
+  --sidebar: 0 0% 6%;
+  --sidebar-foreground: 0 0% 98%;
+  --sidebar-primary: 60 100% 50%;
+  --sidebar-primary-foreground: 0 0% 8%;
+  --sidebar-accent: 0 0% 18%;
+  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-border: 0 0% 25%;
+  --sidebar-ring: 60 100% 50%;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* TechZone Enhanced Styles - 60% Black, 30% Yellow, 10% White */
+@layer components {
+  /* Header enhancements */
+  .header-enhanced {
+    @apply bg-black/95 backdrop-blur-sm border-b border-yellow-400/20;
+  }
+  
+  /* Card enhancements */
+  .card-enhanced {
+    @apply bg-card/95 border border-yellow-400/20 shadow-lg hover:shadow-yellow-400/10 transition-all duration-300;
+  }
+  
+  /* Button enhancements */
+  .btn-primary-enhanced {
+    @apply bg-yellow-400 text-black hover:bg-yellow-300 active:bg-yellow-500 font-semibold;
+  }
+  
+  .btn-secondary-enhanced {
+    @apply bg-black/80 text-white border border-yellow-400/30 hover:border-yellow-400/60 hover:bg-black/90;
+  }
+  
+  /* Navigation enhancements */
+  .nav-enhanced {
+    @apply text-white hover:text-yellow-400 transition-colors duration-200;
+  }
+  
+  /* Product grid enhancements */
+  .product-grid-enhanced {
+    @apply grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+  
+  /* Form enhancements */
+  .form-enhanced {
+    @apply bg-card/50 border border-yellow-400/20 rounded-lg p-6;
+  }
+  
+  /* Badge enhancements */
+  .badge-enhanced {
+    @apply bg-yellow-400/20 text-yellow-400 border border-yellow-400/30;
+  }
+  
+  /* Footer enhancements */
+  .footer-enhanced {
+    @apply bg-black/98 border-t border-yellow-400/20;
+  }
+  
+  /* Sidebar enhancements */
+  .sidebar-enhanced {
+    @apply bg-black/95 border-r border-yellow-400/20;
+  }
+  
+  /* Accent elements */
+  .accent-yellow {
+    @apply text-yellow-400;
+  }
+  
+  .accent-border {
+    @apply border-yellow-400/30;
+  }
+  
+  /* Hover effects */
+  .hover-lift {
+    @apply hover:transform hover:scale-105 transition-transform duration-200;
+  }
+  
+  /* Loading states */
+  .loading-spinner {
+    @apply animate-spin rounded-full h-6 w-6 border-2 border-yellow-400 border-t-transparent;
+  }
+  
+  /* PC Builder specific styles */
+  .tech-glow {
+    position: relative;
+    box-shadow: 0 0 15px 5px rgba(255, 239, 0, 0.15);
+  }
+  
+  .tech-panel {
+    background-color: black;
+    border: 1px solid rgba(255, 239, 0, 0.2);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .tech-btn {
+    background: linear-gradient(to right, #FFEF00, #FFD700);
+    color: black;
+    font-weight: bold;
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+    transform: scale(1);
+  }
+  
+  .tech-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 15px -3px rgba(255, 239, 0, 0.2);
+  }
+  
+  .tech-badge {
+    background-color: rgba(255, 239, 0, 0.2);
+    color: #FFEF00;
+    border: 1px solid rgba(255, 239, 0, 0.3);
+    font-size: 0.75rem;
+    border-radius: 0.375rem;
+    padding: 0.125rem 0.5rem;
+  }
+  
+  /* PC Builder animations */
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px 2px rgba(255, 239, 0, 0.2); }
+    50% { box-shadow: 0 0 15px 5px rgba(255, 239, 0, 0.4); }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+  }
+  
+  .animate-glow { animation: glow 4s ease-in-out infinite; }
+  .animate-float { animation: float 6s ease-in-out infinite; }
+  .animate-scanline { animation: scanline 1.5s linear infinite; }
 }
