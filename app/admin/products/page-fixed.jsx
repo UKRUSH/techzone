@@ -344,54 +344,45 @@ export default function AdminProductsPage() {
                     whileHover={{ y: -5, scale: 1.02, transition: { duration: 0.2 } }}
                     className="h-full"
                   >
-                    <Card className="h-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 hover:shadow-2xl hover:shadow-yellow-500/10 transition-all duration-500 border border-zinc-700/50 hover:border-yellow-500/50 overflow-hidden group relative">
-                      {/* Animated gradient overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-yellow-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                      
-                      {/* Top accent line */}
-                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-700"></div>
-                      
-                      {/* Corner decoration */}
-                      <div className="absolute top-2 right-2 w-2 h-2 bg-yellow-500/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200"></div>
-                      
-                      <CardHeader className="pb-2 relative z-10">
+                    <Card className="h-full bg-gradient-to-b from-zinc-900 to-black hover:shadow-xl transition-all duration-300 border-zinc-800 hover:border-yellow-500/30 overflow-hidden group">
+                      <CardHeader className="pb-2">
                         <div className="flex justify-between items-start">
                           <div className="flex items-center space-x-3">
-                            <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                              <Package className="h-6 w-6 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-300" />
+                            <div className="p-2 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                              <Package className="h-5 w-5 text-yellow-500" />
                             </div>
                             <div>
-                              <CardTitle className="text-white group-hover:text-yellow-400 transition-colors duration-300 text-lg font-bold">
+                              <CardTitle className="text-white group-hover:text-yellow-500 transition-colors duration-200">
                                 {product.name}
                               </CardTitle>
-                              <CardDescription className="text-gray-400 group-hover:text-gray-300 transition-colors duration-300 font-medium">
-                                {(product.category?.name || 'Unknown Category').toUpperCase()}
+                              <CardDescription className="text-gray-400">
+                                {product.category?.name || 'Unknown Category'}
                               </CardDescription>
                             </div>
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 hover:scale-110 transition-all duration-300 rounded-lg">
+                              <Button variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-yellow-500 hover:bg-transparent">
                                 <MoreHorizontal className="h-5 w-5" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-zinc-900/95 backdrop-blur-sm border-zinc-700/50 shadow-2xl">
+                            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800">
                               <DropdownMenuItem 
-                                className="text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400 cursor-pointer transition-all duration-200 rounded-md"
+                                className="text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-500 cursor-pointer"
                                 onClick={() => handleViewProduct(product)}
                               >
                                 <Eye className="mr-2 h-4 w-4" />
-                                View Details
+                                View
                               </DropdownMenuItem>
                               <DropdownMenuItem 
-                                className="text-gray-300 hover:bg-blue-500/10 hover:text-blue-400 cursor-pointer transition-all duration-200 rounded-md"
+                                className="text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-500 cursor-pointer"
                                 onClick={() => handleEditProduct(product)}
                               >
                                 <Edit className="mr-2 h-4 w-4" />
-                                Edit Product
+                                Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem 
-                                className="text-red-400 hover:bg-red-500/10 hover:text-red-300 cursor-pointer transition-all duration-200 rounded-md"
+                                className="text-red-400 hover:bg-red-500/10 cursor-pointer"
                                 onClick={() => handleDeleteProduct(product.id)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -402,48 +393,36 @@ export default function AdminProductsPage() {
                         </div>
                       </CardHeader>
                       
-                      <CardContent className="pb-6 relative z-10">
-                        <div className="flex items-center justify-between mb-6">
-                          <Badge variant="secondary" className="bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 text-yellow-400 border-yellow-500/20 font-medium">
-                            {(product.category?.name || 'Unknown Category').toUpperCase()}
+                      <CardContent className="pb-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <Badge variant="secondary" className="bg-zinc-800 text-gray-300 font-normal">
+                            {product.category?.name || 'Unknown Category'}
                           </Badge>
                           <Badge 
-                            className={`font-medium ${
-                              product.status === 'Featured' ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-emerald-400 border-emerald-500/20' : 
-                              product.status === 'Low Stock' ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-rose-400 border-rose-500/20' : 
-                              'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-cyan-400 border-cyan-500/20'
+                            className={`${
+                              product.status === 'Featured' ? 'bg-green-500/20 text-green-400 border-green-500/20' : 
+                              product.status === 'Low Stock' ? 'bg-red-500/20 text-red-400 border-red-500/20' : 
+                              'bg-blue-500/20 text-blue-400 border-blue-500/20'
                             }`}
                           >
                             {product.status || 'In Stock'}
                           </Badge>
                         </div>
                         
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center p-3 bg-zinc-800/30 rounded-lg border border-zinc-700/30 hover:border-yellow-500/30 transition-colors duration-300">
-                            <span className="text-gray-400 text-sm font-medium flex items-center">
-                              <DollarSign className="h-4 w-4 mr-1 text-yellow-500" />
-                              Price
-                            </span>
-                            <span className="text-white font-bold text-lg">${product.variants?.[0]?.price || 0}</span>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-400 text-sm">Price</span>
+                            <span className="text-white font-semibold">${product.variants?.[0]?.price || 0}</span>
                           </div>
-                          <div className="flex justify-between items-center p-3 bg-zinc-800/30 rounded-lg border border-zinc-700/30 hover:border-blue-500/30 transition-colors duration-300">
-                            <span className="text-gray-400 text-sm font-medium flex items-center">
-                              <Package className="h-4 w-4 mr-1 text-blue-500" />
-                              Stock
-                            </span>
-                            <span className="text-white font-bold text-lg">{product.totalStock || 0}</span>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-400 text-sm">Stock</span>
+                            <span className="text-white font-semibold">{product.totalStock || 0}</span>
                           </div>
-                          <div className="flex justify-between items-center p-3 bg-zinc-800/30 rounded-lg border border-zinc-700/30 hover:border-purple-500/30 transition-colors duration-300">
-                            <span className="text-gray-400 text-sm font-medium flex items-center">
-                              <Layers className="h-4 w-4 mr-1 text-purple-500" />
-                              Brand
-                            </span>
-                            <span className="text-white font-bold text-lg">{(product.brand?.name || 'N/A').toUpperCase()}</span>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-400 text-sm">Brand</span>
+                            <span className="text-white font-semibold">{product.brand?.name || 'N/A'}</span>
                           </div>
                         </div>
-                        
-                        {/* Bottom gradient line */}
-                        <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -478,16 +457,16 @@ export default function AdminProductsPage() {
                               <span className="font-medium text-white">{product.name}</span>
                             </div>
                           </td>
-                          <td className="p-4 align-middle text-gray-300 font-medium">{(product.category?.name || 'N/A').toUpperCase()}</td>
-                          <td className="p-4 align-middle text-gray-300 font-medium">{(product.brand?.name || 'N/A').toUpperCase()}</td>
+                          <td className="p-4 align-middle text-gray-300">{product.category?.name || 'N/A'}</td>
+                          <td className="p-4 align-middle text-gray-300">{product.brand?.name || 'N/A'}</td>
                           <td className="p-4 align-middle text-right text-white">${product.variants?.[0]?.price || 0}</td>
                           <td className="p-4 align-middle text-right text-white">{product.totalStock || 0}</td>
                           <td className="p-4 align-middle">
                             <Badge 
-                              className={`font-medium ${
-                                product.status === 'Featured' ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-emerald-400 border-emerald-500/20' : 
-                                product.status === 'Low Stock' ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-rose-400 border-rose-500/20' : 
-                                'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-cyan-400 border-cyan-500/20'
+                              className={`${
+                                product.status === 'Featured' ? 'bg-green-500/20 text-green-400 border-green-500/20' : 
+                                product.status === 'Low Stock' ? 'bg-red-500/20 text-red-400 border-red-500/20' : 
+                                'bg-blue-500/20 text-blue-400 border-blue-500/20'
                               }`}
                             >
                               {product.status || 'In Stock'}
@@ -548,11 +527,11 @@ export default function AdminProductsPage() {
                 </div>
                 <div>
                   <Label className="text-yellow-500 font-medium">Category</Label>
-                  <p className="text-white mt-1 font-semibold">{(selectedProduct.category?.name || 'N/A').toUpperCase()}</p>
+                  <p className="text-white mt-1">{selectedProduct.category?.name || 'N/A'}</p>
                 </div>
                 <div>
                   <Label className="text-yellow-500 font-medium">Brand</Label>
-                  <p className="text-white mt-1 font-semibold">{(selectedProduct.brand?.name || 'N/A').toUpperCase()}</p>
+                  <p className="text-white mt-1">{selectedProduct.brand?.name || 'N/A'}</p>
                 </div>
                 <div>
                   <Label className="text-yellow-500 font-medium">Price</Label>
@@ -564,10 +543,10 @@ export default function AdminProductsPage() {
                 </div>
                 <div>
                   <Label className="text-yellow-500 font-medium">Status</Label>
-                  <Badge className={`mt-1 font-medium ${
-                    selectedProduct.status === 'Featured' ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-emerald-400 border-emerald-500/20' : 
-                    selectedProduct.status === 'Low Stock' ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-rose-400 border-rose-500/20' : 
-                    'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-cyan-400 border-cyan-500/20'
+                  <Badge className={`mt-1 ${
+                    selectedProduct.status === 'Featured' ? 'bg-green-500/20 text-green-400' : 
+                    selectedProduct.status === 'Low Stock' ? 'bg-red-500/20 text-red-400' : 
+                    'bg-blue-500/20 text-blue-400'
                   }`}>
                     {selectedProduct.status || 'In Stock'}
                   </Badge>

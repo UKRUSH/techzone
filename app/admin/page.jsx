@@ -47,6 +47,34 @@ const pulseAnimation = {
 
 export default function AdminDashboard() {
   const [currentTime, setCurrentTime] = useState('');
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+    // Update time every second
+    const interval = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString());
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Static mock data to prevent hydration mismatch
+  const orderData = [
+    { id: 1001, customer: "Customer 1", amount: 425.99, time: "2 minutes" },
+    { id: 1002, customer: "Customer 2", amount: 892.50, time: "4 hours" },
+    { id: 1003, customer: "Customer 3", amount: 234.75, time: "6 hours" },
+    { id: 1004, customer: "Customer 4", amount: 567.20, time: "8 hours" },
+    { id: 1005, customer: "Customer 5", amount: 789.45, time: "10 hours" }
+  ];
+
+  const productData = [
+    { name: "AMD Ryzen 9 7900X", sold: 42, price: 449.99, percentage: 85 },
+    { name: "NVIDIA RTX 4080", sold: 28, price: 1199.99, percentage: 72 },
+    { name: "Corsair Dominator DDR5", sold: 35, price: 329.99, percentage: 68 },
+    { name: "Samsung 980 PRO SSD", sold: 51, price: 149.99, percentage: 95 },
+    { name: "ASUS ROG Motherboard", sold: 19, price: 289.99, percentage: 58 }
+  ];
   
   useEffect(() => {
     // Update time every second
@@ -117,7 +145,7 @@ export default function AdminDashboard() {
             <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 drop-shadow-sm">Dashboard</h1>
             <p className="text-white/70 flex items-center mt-2">
               <Clock className="h-4 w-4 mr-2 text-yellow-400/80" /> 
-              <span>{currentTime} • Welcome to TechZone Admin Panel</span>
+              <span>{isClient ? currentTime : '--:--:--'} • Welcome to TechZone Admin Panel</span>
             </p>
           </div>
           
@@ -192,9 +220,9 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="pt-6">
               <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
+                {orderData.map((order, i) => (
                   <motion.div 
-                    key={i}
+                    key={order.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
@@ -203,15 +231,15 @@ export default function AdminDashboard() {
                   >
                     <div>
                       <p className="font-medium text-white flex items-center">
-                        Order #{1000 + i} 
-                        {i === 1 && <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-yellow-400 text-black rounded uppercase font-bold">New</span>}
+                        Order #{order.id} 
+                        {i === 0 && <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-yellow-400 text-black rounded uppercase font-bold">New</span>}
                       </p>
-                      <p className="text-sm text-white/60">Customer {i}</p>
+                      <p className="text-sm text-white/60">{order.customer}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-yellow-400">${(Math.random() * 1000 + 100).toFixed(2)}</p>
+                      <p className="font-medium text-yellow-400">${order.amount.toFixed(2)}</p>
                       <p className="text-xs text-white/60 flex items-center justify-end">
-                        {i === 1 ? '2 minutes' : (i * 2) + ' hours'} ago
+                        {order.time} ago
                         <ArrowUpRight className="ml-1 h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </p>
                     </div>
@@ -242,13 +270,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="pt-6">
               <div className="space-y-4">
-                {[
-                  "AMD Ryzen 9 7900X",
-                  "NVIDIA RTX 4080",
-                  "Corsair Dominator DDR5",
-                  "Samsung 980 PRO SSD",
-                  "ASUS ROG Motherboard"
-                ].map((product, i) => (
+                {productData.map((product, i) => (
                   <motion.div 
                     key={i}
                     initial={{ opacity: 0, y: 10 }}
@@ -262,16 +284,16 @@ export default function AdminDashboard() {
                         <span className="text-xs font-bold text-yellow-400">#{i+1}</span>
                       </div>
                       <div>
-                        <p className="font-medium text-white">{product}</p>
-                        <p className="text-sm text-white/60">{Math.floor(Math.random() * 50 + 10)} sold</p>
+                        <p className="font-medium text-white">{product.name}</p>
+                        <p className="text-sm text-white/60">{product.sold} sold</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-yellow-400">${(Math.random() * 500 + 200).toFixed(2)}</p>
+                      <p className="font-medium text-yellow-400">${product.price.toFixed(2)}</p>
                       <div className="mt-1 h-1.5 w-24 bg-gray-800 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full" 
-                          style={{ width: `${Math.floor(Math.random() * 50 + 50)}%` }}
+                          style={{ width: `${product.percentage}%` }}
                         ></div>
                       </div>
                     </div>
