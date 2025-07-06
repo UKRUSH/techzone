@@ -48,9 +48,16 @@ const pulseAnimation = {
 export default function AdminDashboard() {
   const [currentTime, setCurrentTime] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   useEffect(() => {
     setIsClient(true);
+    
+    // Fetch dashboard data from database
+    fetchDashboardData();
+    
     // Update time every second
     const interval = setInterval(() => {
       setCurrentTime(new Date().toLocaleTimeString());
@@ -59,36 +66,46 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Static mock data to prevent hydration mismatch
-  const orderData = [
-    { id: 1001, customer: "Customer 1", amount: 425.99, time: "2 minutes" },
-    { id: 1002, customer: "Customer 2", amount: 892.50, time: "4 hours" },
-    { id: 1003, customer: "Customer 3", amount: 234.75, time: "6 hours" },
-    { id: 1004, customer: "Customer 4", amount: 567.20, time: "8 hours" },
-    { id: 1005, customer: "Customer 5", amount: 789.45, time: "10 hours" }
-  ];
-
-  const productData = [
-    { name: "AMD Ryzen 9 7900X", sold: 42, price: 449.99, percentage: 85 },
-    { name: "NVIDIA RTX 4080", sold: 28, price: 1199.99, percentage: 72 },
-    { name: "Corsair Dominator DDR5", sold: 35, price: 329.99, percentage: 68 },
-    { name: "Samsung 980 PRO SSD", sold: 51, price: 149.99, percentage: 95 },
-    { name: "ASUS ROG Motherboard", sold: 19, price: 289.99, percentage: 58 }
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      const response = await fetch('/api/admin/stats', {
+        cache: 'no-store'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setDashboardData(result.data);
+        } else {
+          setError('Failed to load dashboard data');
+        }
+      } else {
+        setError('Server error occurred');
+      }
+    } catch (error) {
+      console.error('Dashboard data fetch failed:', error);
+      setError('Failed to connect to server');
+    } finally {
+      setLoading(false);
+    }
+  };
   
-  useEffect(() => {
-    // Update time every second
-    const interval = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString());
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, []);
+  // Function to refresh data manually
+  const refreshData = () => {
+    setLoading(true);
+    setError(null);
+    fetchDashboardData();
+  };
 
-  const stats = [
+  // Data from dashboardData
+  const orderData = dashboardData?.recentOrders || [];
+  const productData = dashboardData?.topProducts || [];
+  
+  // Stats array for dashboard cards
+  const stats = dashboardData ? [
     {
       title: "Total Products",
-      value: "1,234",
+      value: dashboardData.stats?.totalProducts?.toString() || "0",
       change: "+12%",
       trend: "up",
       icon: Package,
@@ -96,7 +113,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Total Orders",
-      value: "856",
+      value: dashboardData.stats?.totalOrders?.toString() || "0",
       change: "+8%",
       trend: "up",
       icon: ShoppingCart,
@@ -104,7 +121,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Total Customers",
-      value: "2,341",
+      value: dashboardData.stats?.totalCustomers?.toString() || "0",
       change: "+23%",
       trend: "up",
       icon: Users,
@@ -112,13 +129,50 @@ export default function AdminDashboard() {
     },
     {
       title: "Revenue",
-      value: "$12,345",
+      value: dashboardData.stats?.formattedRevenue || "Rs. 0",
       change: "-2%",
       trend: "down",
       icon: DollarSign,
       color: "from-yellow-400 to-amber-500"
     }
-  ];
+  ] : [];
+
+  // Return null if not mounted on client side
+  if (!isClient) {
+    return null;
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-white/70">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-6 max-w-md mx-auto">
+            <h2 className="text-red-400 text-lg font-semibold mb-2">Error Loading Dashboard</h2>
+            <p className="text-white/70 mb-4">{error}</p>
+            <button
+              onClick={refreshData}
+              className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 relative">
@@ -153,9 +207,27 @@ export default function AdminDashboard() {
             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
               <CheckCircle className="h-3 w-3 mr-1" /> System Online
             </span>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-              <AlertTriangle className="h-3 w-3 mr-1" /> 3 Pending Tasks
-            </span>
+            {loading ? (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                <div className="animate-spin rounded-full h-2 w-2 border-b border-blue-400 mr-2"></div>
+                Loading Data
+              </span>
+            ) : (
+              <>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                  <Activity className="h-3 w-3 mr-1" />
+                  Database Data
+                </span>
+                <button
+                  onClick={refreshData}
+                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-colors"
+                  disabled={loading}
+                >
+                  <Zap className="h-3 w-3 mr-1" />
+                  Refresh
+                </button>
+              </>
+            )}
           </div>
         </div>
       </motion.div>
@@ -237,9 +309,9 @@ export default function AdminDashboard() {
                       <p className="text-sm text-white/60">{order.customer}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-yellow-400">${order.amount.toFixed(2)}</p>
+                      <p className="font-medium text-yellow-400">{order.formattedAmount || `Rs. ${order.amount?.toFixed(2) || '0.00'}`}</p>
                       <p className="text-xs text-white/60 flex items-center justify-end">
-                        {order.time} ago
+                        {order.time}
                         <ArrowUpRight className="ml-1 h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </p>
                     </div>
@@ -272,7 +344,7 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 {productData.map((product, i) => (
                   <motion.div 
-                    key={i}
+                    key={product.id || i}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
@@ -285,15 +357,21 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <p className="font-medium text-white">{product.name}</p>
-                        <p className="text-sm text-white/60">{product.sold} sold</p>
+                        <p className="text-sm text-white/60">{product.soldQuantity || 0} sold</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-yellow-400">${product.price.toFixed(2)}</p>
+                      <p className="font-medium text-yellow-400">
+                        {new Intl.NumberFormat('en-LK', {
+                          style: 'currency',
+                          currency: 'LKR',
+                          minimumFractionDigits: 0
+                        }).format(product.price || 0)}
+                      </p>
                       <div className="mt-1 h-1.5 w-24 bg-gray-800 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full" 
-                          style={{ width: `${product.percentage}%` }}
+                          style={{ width: `${Math.min((product.soldQuantity || 0) * 2, 100)}%` }}
                         ></div>
                       </div>
                     </div>

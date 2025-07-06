@@ -1,1047 +1,1171 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
+import { motion } from "framer-motion";
+import { useCart } from "@/components/providers/CartProvider";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import ProductCard from "@/components/ProductCard";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   Search, 
   Filter, 
   Grid3X3, 
   List, 
-  ChevronDown,
-  SlidersHorizontal,
+  Zap,
   Package,
-  Loader2
+  Star,
+  ShoppingCart,
+  X,
+  Eye,
+  GitCompare,
+  Heart,
+  Share2
 } from "lucide-react";
+
+// Enhanced Product Card component with 60% Black / 40% Yellow Premium Theme
+const DatabaseProductCard = memo(function DatabaseProductCard({ product, onAddToCart, onQuickView, onAddToCompare, isInCompare }) {
+  const categoryColors = {
+    gpu: 'from-yellow-400 via-amber-500 to-orange-500',
+    cpu: 'from-yellow-500 via-yellow-600 to-amber-600', 
+    storage: 'from-amber-400 via-yellow-500 to-yellow-600',
+    memory: 'from-yellow-300 via-yellow-400 to-amber-500',
+    motherboard: 'from-yellow-600 via-amber-600 to-orange-600',
+    'power-supply': 'from-gray-700 via-gray-800 to-black',
+    cooling: 'from-yellow-400 via-amber-400 to-yellow-500',
+    case: 'from-gray-800 via-black to-gray-900'
+  };
+
+  return (
+    <motion.div
+      whileHover={{ y: -8, scale: 1.02 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="group relative"
+    >
+      {/* Premium Golden Glow Effect */}
+      <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 via-amber-500/15 to-yellow-600/20 blur-xl rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+      
+      <Card className="relative bg-gradient-to-br from-black via-gray-900/95 to-black border-2 border-yellow-500/40 hover:border-yellow-400/80 transition-all duration-300 cursor-pointer h-full rounded-3xl overflow-hidden shadow-2xl group-hover:shadow-yellow-400/25">
+        {/* Animated Border Glow */}
+        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 via-transparent to-yellow-400/20 animate-pulse rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        
+        <CardHeader className="relative pb-4 p-6">
+          {/* Enhanced Product Image/Icon Section */}
+          <div className={`aspect-square rounded-2xl mb-4 flex items-center justify-center relative bg-gradient-to-br ${categoryColors[product.category] || 'from-yellow-400 to-amber-500'} shadow-2xl group-hover:shadow-yellow-400/30 transition-all duration-300`}>
+            <Package className="w-16 h-16 text-black/80 group-hover:scale-110 transition-transform duration-300" />
+            
+            {/* Premium Category Badge */}
+            <div className="absolute top-3 left-3">
+              <Badge className="bg-black/80 backdrop-blur-sm text-yellow-300 border border-yellow-400/40 text-xs font-bold px-3 py-1 rounded-full">
+                {product.category.toUpperCase()}
+              </Badge>
+            </div>
+            
+            {/* Stock Status Badge */}
+            <div className="absolute top-3 right-3">
+              <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white border border-green-400/50 text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                ✓ IN STOCK
+              </Badge>
+            </div>
+            
+            {/* Premium Price Tag */}
+            <div className="absolute bottom-3 right-3 bg-gradient-to-r from-black/90 to-gray-900/90 backdrop-blur-sm rounded-xl px-3 py-2 border border-yellow-400/30">
+              <span className="text-yellow-400 font-black text-lg">Rs. {product.price}</span>
+            </div>
+            
+            {/* Floating Golden Orbs */}
+            <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-yellow-300/60 rounded-full blur-sm animate-pulse"></div>
+            <div className="absolute bottom-1/3 right-1/4 w-2 h-2 bg-amber-400/60 rounded-full blur-sm animate-pulse delay-500"></div>
+          </div>
+          
+          {/* Enhanced Product Title */}
+          <CardTitle className="text-white group-hover:text-yellow-300 transition-colors duration-300 text-xl font-bold leading-tight line-clamp-2 mb-3">
+            {product.name}
+          </CardTitle>
+          
+          {/* Premium Brand Badge */}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-2 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-xl border border-yellow-400/30">
+              <Star className="w-4 h-4 text-yellow-400" />
+            </div>
+            <span className="text-yellow-300 font-semibold text-sm tracking-wide">{product.brand}</span>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="relative pt-0 p-6 space-y-4">
+          {/* Premium Rating System */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className={`w-5 h-5 transition-colors duration-200 ${i < product.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'}`} />
+              ))}
+            </div>
+            <span className="text-yellow-300 font-bold text-sm bg-black/50 px-3 py-1 rounded-full border border-yellow-400/30">
+              {product.rating}/5
+            </span>
+          </div>
+          
+          {/* Enhanced Price and Stock Info */}
+          <div className="bg-gradient-to-r from-black/60 to-gray-900/60 rounded-2xl p-4 border border-yellow-500/30">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <div className="text-3xl font-black bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                  Rs. {product.price.toLocaleString()}
+                </div>
+                <div className="text-yellow-300/70 text-sm font-medium">Competitive Pricing</div>
+              </div>
+              <div className="text-right">
+                <div className="text-green-400 font-bold text-lg">{product.stock} units</div>
+                <div className="text-green-300/70 text-sm">Available</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Premium Action Button */}
+          <motion.div 
+            whileHover={{ scale: 1.02 }} 
+            whileTap={{ scale: 0.98 }}
+            className="relative"
+          >
+            <Button 
+              onClick={() => onAddToCart(product)}
+              className="w-full h-14 bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-500 hover:from-yellow-500 hover:via-amber-500 hover:to-orange-500 text-black font-black text-lg rounded-2xl shadow-2xl border-0 transition-all duration-300 relative overflow-hidden group/btn"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-400 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 flex items-center justify-center gap-3">
+                <ShoppingCart className="w-6 h-6" />
+                <span>Add to Cart</span>
+                <motion.div 
+                  animate={{ x: [0, 4, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="text-black"
+                >
+                  →
+                </motion.div>
+              </div>
+              
+              {/* Animated background sweep */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700 skew-x-12"></div>
+            </Button>
+          </motion.div>
+          
+          {/* Quick Actions */}
+          <div className="flex gap-2 pt-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => onQuickView(product)}
+              className="flex-1 border-yellow-500/40 text-yellow-300 hover:bg-yellow-400/10 hover:border-yellow-400/60 rounded-xl"
+            >
+              Quick View
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => onAddToCompare(product)}
+              className={`flex-1 border-yellow-500/40 hover:border-yellow-400/60 rounded-xl transition-colors ${
+                isInCompare 
+                  ? 'bg-yellow-400/20 text-yellow-400 border-yellow-400/80' 
+                  : 'text-yellow-300 hover:bg-yellow-400/10'
+              }`}
+            >
+              {isInCompare ? '✓ Added' : 'Compare'}
+            </Button>
+          </div>
+        </CardContent>
+        
+        {/* Premium Hover Effect Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-yellow-400/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-3xl"></div>
+      </Card>
+    </motion.div>
+  );
+});
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("");
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 10000 });
-  const [sortBy, setSortBy] = useState("name");
   const [viewMode, setViewMode] = useState("grid");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
+  const [compareProducts, setCompareProducts] = useState([]);
+  const [showQuickView, setShowQuickView] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
-  // Fetch products from API
+  // Use global cart from provider
+  const { items: cartItems, addToCart: addToCartGlobal, cartItemCount } = useCart();
+
+  // Handle client-side hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Fetch data from database
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+    fetchBrands();
+  }, []);
+
   const fetchProducts = async () => {
     try {
-      setLoading(true);
-      
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '12',
-        ...(selectedCategory && { category: selectedCategory }),
-        ...(selectedBrand && { brand: selectedBrand }),
-        ...(priceRange.min > 0 && { minPrice: priceRange.min.toString() }),
-        ...(priceRange.max < 10000 && { maxPrice: priceRange.max.toString() })
-      });
-
-      const response = await fetch(`/api/products?${params}`);
-      const data = await response.json();
-      
+      const response = await fetch('/api/products');
       if (response.ok) {
-        setProducts(data.products || []);
-        setTotalPages(data.pagination?.pages || 1);
+        const result = await response.json();
+        const productsData = result.data || [];
+        // Convert database format to component format, keeping variants for cart functionality
+        const formattedProducts = productsData.map(product => ({
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          price: product.variants?.[0]?.price || 0,
+          category: product.category?.name || 'Other',
+          brand: product.brand?.name || 'Unknown',
+          inStock: true,
+          rating: 5,
+          stock: product.variants?.[0]?.attributes?.stock || 0,
+          imageUrl: product.variants?.[0]?.attributes?.imageUrl || '',
+          variants: product.variants || [] // Keep the full variants array for cart functionality
+        }));
+        setProducts(formattedProducts);
       } else {
-        console.error("Error fetching products:", data.error);
-        // Set mock data as fallback
-        setProducts(mockProducts);
+        console.error('Failed to fetch products from database');
+        setProducts([]);
       }
     } catch (error) {
-      console.error("Error fetching products:", error);
-      // Set mock data as fallback
-      setProducts(mockProducts);
+      console.error('Error fetching products:', error);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock products data as fallback
-  const mockProducts = [
-    {
-      id: "1",
-      name: "AMD Ryzen 9 7900X",
-      category: { name: "CPU" },
-      brand: { name: "AMD" },
-      variants: [{ price: 599.99, compareAtPrice: 699.99 }],
-      averageRating: 4.8,
-      reviewCount: 247,
-      totalStock: 45,
-      images: [{ url: "/api/placeholder/400/400" }],
-      features: ["12 Cores", "24 Threads", "5.6 GHz Max Boost"],
-      createdAt: new Date()
-    },
-    {
-      id: "2",
-      name: "NVIDIA RTX 4080 Super",
-      category: { name: "GPU" },
-      brand: { name: "NVIDIA" },
-      variants: [{ price: 999.99, compareAtPrice: 1199.99 }],
-      averageRating: 4.9,
-      reviewCount: 189,
-      totalStock: 23,
-      images: [{ url: "/api/placeholder/400/400" }],
-      features: ["16GB GDDR6X", "Ray Tracing"],
-      createdAt: new Date()
-    },
-    {
-      id: "3",
-      name: "Samsung 980 PRO 2TB",
-      category: { name: "Storage" },
-      brand: { name: "Samsung" },
-      variants: [{ price: 179.99, compareAtPrice: 249.99 }],
-      averageRating: 4.7,
-      reviewCount: 456,
-      totalStock: 67,
-      images: [{ url: "/api/placeholder/400/400" }],
-      features: ["2TB Capacity", "PCIe 4.0"],
-      createdAt: new Date()
-    },
-    {
-      id: "4",
-      name: "Corsair Vengeance LPX 32GB",
-      category: { name: "RAM" },
-      brand: { name: "Corsair" },
-      variants: [{ price: 129.99, compareAtPrice: 149.99 }],
-      averageRating: 4.6,
-      reviewCount: 312,
-      totalStock: 89,
-      images: [{ url: "/api/placeholder/400/400" }],
-      features: ["32GB Kit", "DDR4-3200"],
-      createdAt: new Date()
-    }
-  ];
-
-  // Fetch categories and brands
-  const fetchFilters = async () => {
+  const fetchCategories = async () => {
     try {
-      const [categoriesRes, brandsRes] = await Promise.all([
-        fetch('/api/categories'),
-        fetch('/api/brands')
-      ]);
-      
-      if (categoriesRes.ok) {
-        const categoriesData = await categoriesRes.json();
-        setCategories(categoriesData);
-      } else {
-        // Mock categories as fallback
-        setCategories([
-          { name: "CPU" },
-          { name: "GPU" },
-          { name: "RAM" },
-          { name: "Storage" },
-          { name: "Motherboard" },
-          { name: "PSU" }
-        ]);
-      }
-      
-      if (brandsRes.ok) {
-        const brandsData = await brandsRes.json();
-        setBrands(brandsData);
-      } else {
-        // Mock brands as fallback
-        setBrands([
-          { name: "AMD" },
-          { name: "Intel" },
-          { name: "NVIDIA" },
-          { name: "Samsung" },
-          { name: "Corsair" },
-          { name: "ASUS" }
-        ]);
+      const response = await fetch('/api/categories');
+      if (response.ok) {
+        const result = await response.json();
+        setCategories(result.data || []);
       }
     } catch (error) {
-      console.error("Error fetching filters:", error);
-      // Set mock data as fallback
-      setCategories([
-        { name: "CPU" },
-        { name: "GPU" },
-        { name: "RAM" },
-        { name: "Storage" }
-      ]);
-      setBrands([
-        { name: "AMD" },
-        { name: "NVIDIA" },
-        { name: "Samsung" },
-        { name: "Corsair" }
-      ]);
+      console.error('Error fetching categories:', error);
     }
   };
 
-  useEffect(() => {
-    fetchFilters();
-  }, []);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [currentPage, selectedCategory, selectedBrand, priceRange]);
-
-  // Filter products by search term (client-side for now)
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.brand?.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Sort products
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case "price-low":
-        return (a.variants[0]?.price || 0) - (b.variants[0]?.price || 0);
-      case "price-high":
-        return (b.variants[0]?.price || 0) - (a.variants[0]?.price || 0);
-      case "rating":
-        return (b.averageRating || 0) - (a.averageRating || 0);
-      case "newest":
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      default:
-        return a.name.localeCompare(b.name);
+  const fetchBrands = async () => {
+    try {
+      const response = await fetch('/api/brands');
+      if (response.ok) {
+        const result = await response.json();
+        setBrands(result.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching brands:', error);
     }
-  });
+  };
 
-  const clearFilters = () => {
+  // Filter products based on search and selections
+  const filteredProducts = useMemo(() => {
+    let filtered = products;
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(p => p.category === selectedCategory);
+    }
+    if (selectedBrand) {
+      filtered = filtered.filter(p => p.brand === selectedBrand);
+    }
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        p.brand.toLowerCase().includes(query) ||
+        p.category.toLowerCase().includes(query)
+      );
+    }
+    return filtered;
+  }, [products, selectedCategory, selectedBrand, searchQuery]);
+
+  const handleCategoryChange = useCallback((category) => setSelectedCategory(category), []);
+  const handleBrandChange = useCallback((brand) => setSelectedBrand(brand), []);
+  const handleSearchChange = useCallback((e) => setSearchQuery(e.target.value), []);
+  const clearFilters = useCallback(() => {
     setSelectedCategory("");
     setSelectedBrand("");
-    setPriceRange({ min: 0, max: 10000 });
-    setSearchTerm("");
-    setCurrentPage(1);
-  };
+    setSearchQuery("");
+  }, []);
+
+  // Cart functionality
+  const addToCart = useCallback(async (product) => {
+    try {
+      // Use the first variant of the product (or create one if needed)
+      const variant = product.variants && product.variants.length > 0 
+        ? product.variants[0] 
+        : null;
+
+      if (!variant) {
+        alert(`❌ Error: "${product.name}" has no available variants.`);
+        console.error('Product has no variants:', product);
+        return;
+      }
+
+      console.log('Adding to cart:', {
+        productName: product.name,
+        variantId: variant.id,
+        variant: variant
+      });
+
+      const result = await addToCartGlobal(variant.id, 1);
+      console.log('Add to cart result:', result);
+      
+      if (result.success) {
+        alert(`✅ "${product.name}" added to cart!`);
+      } else {
+        alert(`❌ Error: ${result.error || 'Failed to add to cart'}`);
+        console.error('Failed to add to cart:', result);
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      alert(`❌ Error: Failed to add "${product.name}" to cart.`);
+    }
+  }, [addToCartGlobal]);
+
+  // Quick View functionality
+  const openQuickView = useCallback((product) => {
+    setQuickViewProduct(product);
+    setShowQuickView(true);
+  }, []);
+
+  const closeQuickView = useCallback(() => {
+    setShowQuickView(false);
+    setQuickViewProduct(null);
+  }, []);
+
+  // Compare functionality
+  const addToCompare = useCallback((product) => {
+    setCompareProducts(prevCompare => {
+      if (prevCompare.find(item => item.id === product.id)) {
+        alert(`⚠️ "${product.name}" is already in comparison list!\n📊 Current comparison: ${prevCompare.length}/3 products`);
+        return prevCompare;
+      }
+      
+      if (prevCompare.length >= 3) {
+        alert('❌ You can only compare up to 3 products at a time!\n🗑️ Remove a product to add a new one.');
+        return prevCompare;
+      }
+      
+      const newCompare = [...prevCompare, product];
+      alert(`✅ Added "${product.name}" to comparison!\n📊 Products in comparison: ${newCompare.length}/3\n💡 Tip: Click the Compare button to view side-by-side comparison`);
+      return newCompare;
+    });
+  }, []);
+
+  const removeFromCompare = useCallback((productId) => {
+    setCompareProducts(prevCompare => 
+      prevCompare.filter(item => item.id !== productId)
+    );
+  }, []);
+
+  const openCompare = useCallback(() => {
+    if (compareProducts.length === 0) {
+      alert('📊 No products in comparison yet!\n💡 Add products to compare by clicking the "Compare" button on product cards.');
+      return;
+    }
+    setShowCompare(true);
+  }, [compareProducts]);
 
   return (
     <>
       <Header />
-      <div className="min-h-screen relative overflow-hidden">
-        {/* Enhanced background with advanced patterns and animations */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-yellow-950/20 z-0"></div>
-        
-        {/* Dynamic animated wave patterns */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 right-0 h-[200px] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTQ0MCIgaGVpZ2h0PSI1MDAiIHZpZXdCb3g9IjAgMCAxNDQwIDUwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNLTI4OCA0NDYuNUMtMjEuOCAzMDcuMSAxMzYuNiA0MTMuMSAyNDMuNyAzMzUuNkM0MTIuMyAyMTcuMiA1NDMuMSA0MTEuMyA3MTkuMiAzMDNDODY0LjcgMjE2LjUgOTI3LjEgMzYwLjggMTEzMC43IDI0OEMxMzk3LjMgOTguNiAxNDMwLjIgMzc2LjQgMTYyMC44IDI2MC4xQzE3ODMuMSAxNjEuNSAxODc3LjEgMzU3LjMgMjAxMC40IDI3Ny42IiBzdHJva2U9IiNGRkQzMDAiIHN0cm9rZS13aWR0aD0iMyIvPjwvc3ZnPg==')] bg-no-repeat bg-cover animate-pulse-slower"></div>
-          <div className="absolute bottom-0 left-0 right-0 h-[200px] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTQ0MCIgaGVpZ2h0PSI1MDAiIHZpZXdCb3g9IjAgMCAxNDQwIDUwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNLTM5NyAxOTkuMUMtMTMwLjggMzM4LjUgMjcuNiAyMzIuNSAxMzQuNyAzMDkuOUMzMDMuMyA0MjguMyA0MzQuMSAyMzQuMiA2MTAuMiAzNDIuNUM3NTUuNyA0MjkgODE4LjEgMjg0LjcgMTAyMS43IDM5Ny41QzEyODguMyA1NDYuOSAxMzIxLjIgMjY5LjEgMTUxMS44IDM4NS40QzE2NzQuMSA0ODQgMTc2OC4xIDI4OC4yIDE5MDEuNCAzNjcuOSIgc3Ryb2tlPSIjRkZEMzAwIiBzdHJva2Utd2lkdGg9IjMiLz48L3N2Zz4=')] bg-no-repeat bg-cover animate-pulse-slow"></div>
-        </div>
-        
-        {/* Animated yellow orbs with advanced glow effects */}
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-gradient-to-br from-yellow-400/20 to-yellow-600/5 blur-3xl animate-pulse-slow"></div>
-        <div className="absolute top-1/3 -left-40 w-96 h-96 rounded-full bg-gradient-to-tr from-yellow-500/20 to-amber-600/5 blur-3xl animate-pulse-slower"></div>
-        <div className="absolute bottom-20 right-20 w-80 h-80 rounded-full bg-gradient-to-bl from-yellow-300/20 to-yellow-500/5 blur-3xl animate-pulse-slow"></div>
-        
-        {/* Advanced glow focal points */}
-        <div className="absolute top-1/4 right-1/4 w-64 h-64 rounded-full bg-gradient-to-r from-yellow-400/15 via-yellow-300/10 to-yellow-500/5 blur-3xl animate-pulse-slower"></div>
-        <div className="absolute bottom-1/3 left-1/4 w-72 h-72 rounded-full bg-gradient-to-l from-yellow-400/15 via-yellow-300/10 to-yellow-500/5 blur-3xl animate-pulse-slow"></div>
-        
-        {/* Black overlay with improved depth effect */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/70 z-1"></div>
-        
-        {/* Enhanced grid pattern overlay with subtle animation */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0wIDBoNjB2NjBIMHoiLz48cGF0aCBkPSJNMzAgMzBoMzB2MzBIMzB6IiBzdHJva2U9InJnYmEoMjU1LDIxNSwwLDAuMDgpIiBzdHJva2Utd2lkdGg9Ii41Ii8+PHBhdGggZD0iTTAgMzBoMzB2MzBIMHoiIHN0cm9rZT0icmdiYSgyNTUsMjE1LDAsMC4wOCkiIHN0cm9rZS13aWR0aD0iLjUiLz48L2c+PC9zdmc+')] opacity-30 z-1 animate-pulse-slower"></div>
-        
-        {/* Diagonal yellow streaks */}
-        <div className="absolute inset-0 overflow-hidden z-1 opacity-10">
-          <div className="absolute -left-full -bottom-full w-[200%] h-[200%] bg-[repeating-linear-gradient(45deg,transparent,transparent_40px,rgba(255,215,0,0.1)_40px,rgba(255,215,0,0.1)_80px)] transform rotate-45"></div>
-        </div>
-        
-        {/* Advanced animated glowing dots with interactive effects */}
-        <div className="absolute top-40 right-20 w-3 h-3 rounded-full bg-gradient-to-r from-yellow-300 to-yellow-500 shadow-lg shadow-yellow-400/40 animate-ping-slow z-2"></div>
-        <div className="absolute top-1/2 left-32 w-2 h-2 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-600 shadow-lg shadow-yellow-500/40 animate-ping-slower z-2"></div>
-        <div className="absolute bottom-40 right-1/3 w-2.5 h-2.5 rounded-full bg-gradient-to-r from-yellow-200 to-yellow-400 shadow-lg shadow-yellow-300/40 animate-ping-slow z-2"></div>
-        <div className="absolute top-2/3 left-1/4 w-2 h-2 rounded-full bg-gradient-to-r from-yellow-300 to-yellow-500 shadow-lg shadow-yellow-400/40 animate-ping-slow z-2"></div>
-        <div className="absolute top-1/4 left-2/3 w-1.5 h-1.5 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-600 shadow-lg shadow-yellow-500/40 animate-ping-slower z-2"></div>
-        
-        <div className="container mx-auto px-4 py-12 relative z-10 flex flex-col md:flex-row gap-10">
-          {/* Enhanced Sidebar Filters */}
-          <aside className="w-full md:w-80 space-y-7 backdrop-blur-sm bg-gradient-to-b from-black/90 via-black/80 to-black/90 border border-yellow-400/30 rounded-2xl shadow-xl shadow-yellow-400/10 p-7 sticky top-8 self-start">
-            {/* Pulsing corner accent */}
-            <div className="absolute top-0 left-0 w-24 h-24">
-              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-yellow-400/30 to-transparent rounded-tl-2xl"></div>
-              <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-yellow-400/80 animate-pulse-slow"></div>
+      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-black via-gray-900 to-black">
+        {/* Premium 60% Black / 40% Yellow Background Effects */}
+        {mounted && (
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Primary Golden Glow Effects (40% Yellow Theme) */}
+            <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-r from-yellow-500/20 to-amber-600/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-yellow-400/10 to-amber-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
+            
+            {/* Floating Golden Orbs */}
+            <motion.div
+              initial={{ x: -100, y: -100 }}
+              animate={{ 
+                x: [0, 150, 0, -150, 0],
+                y: [0, -150, 150, 0, 0]
+              }}
+              transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+              className="absolute top-20 left-20 w-40 h-40 bg-gradient-to-r from-yellow-400/15 to-amber-500/15 rounded-full blur-2xl"
+            ></motion.div>
+            
+            <motion.div
+              initial={{ x: 100, y: 100 }}
+              animate={{ 
+                x: [0, -200, 0, 200, 0],
+                y: [0, 200, -150, 0, 0]
+              }}
+              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+              className="absolute bottom-20 right-20 w-48 h-48 bg-gradient-to-r from-amber-400/15 to-yellow-500/15 rounded-full blur-2xl"
+            ></motion.div>
+            
+            {/* Animated Golden Grid Pattern */}
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0wIDBoNjB2NjBIMHoiLz48cGF0aCBkPSJNMzAgMzBoMzB2MzBIMzB6IiBzdHJva2U9InJnYmEoMjU1LDIxNSwwLDAuMTIpIiBzdHJva2Utd2lkdGg9IjEiLz48cGF0aCBkPSJNMCAzMGgzMHYzMEgweiIgc3Ryb2tlPSJyZ2JhKDI1NSwyMTUsMCwwLjEyKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9nPjwvc3ZnPg==')] opacity-20"></div>
+            
+            {/* Premium Animated Particles */}
+            <div className="absolute top-32 right-32 w-4 h-4 rounded-full bg-yellow-400/80 shadow-2xl shadow-yellow-400/50 animate-ping"></div>
+            <div className="absolute top-1/3 left-20 w-3 h-3 rounded-full bg-amber-500/80 shadow-2xl shadow-amber-500/50 animate-ping delay-300"></div>
+            <div className="absolute bottom-1/3 right-1/4 w-3.5 h-3.5 rounded-full bg-yellow-300/80 shadow-2xl shadow-yellow-300/50 animate-ping delay-700"></div>
+            <div className="absolute top-3/4 left-1/3 w-2.5 h-2.5 rounded-full bg-yellow-600/80 shadow-2xl shadow-yellow-600/50 animate-ping delay-1000"></div>
+            
+            {/* Diagonal Golden Accent Lines */}
+            <div className="absolute inset-0 overflow-hidden opacity-10">
+              <div className="absolute -left-full -bottom-full w-[200%] h-[200%] bg-gradient-to-br from-yellow-400/30 via-amber-500/15 to-transparent transform rotate-45"></div>
             </div>
-            
-            {/* Enhanced Search with advanced styling */}
-            <Card className="bg-transparent border-0 shadow-none">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center text-yellow-400 font-semibold tracking-wide">
-                  <div className="p-1.5 rounded-full bg-yellow-400/10 mr-2.5">
-                    <Search className="w-5 h-5 text-yellow-400" />
-                  </div>
-                  Search Products
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative group">
-                  <div className="absolute left-3 top-3 text-yellow-400/70 transition-colors group-hover:text-yellow-400">
-                    <Search className="h-4 w-4" />
-                  </div>
-                  <Input
-                    placeholder="Search products..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-black/60 border-yellow-400/30 text-white rounded-lg focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400 transition-all shadow-inner shadow-yellow-400/5"
-                  />
-                  {/* Focus ring effect */}
-                  <div className="absolute inset-0 -z-10 rounded-lg border border-yellow-400/0 group-focus-within:border-yellow-400/40 opacity-0 group-focus-within:opacity-100 transition-all duration-300"></div>
-                  
-                  {/* Animated corner accent */}
-                  <div className="absolute bottom-0 right-0 w-8 h-8 opacity-0 group-focus-within:opacity-100 transition-opacity">
-                    <div className="absolute bottom-0 right-0 w-full h-full bg-gradient-to-tl from-yellow-400/30 to-transparent rounded-br-lg"></div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            {/* Enhanced Categories with improved UI */}
-            <Card className="bg-transparent border-0 shadow-none relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/5 to-transparent rounded-xl opacity-40"></div>
-              <CardHeader className="pb-3 relative z-10">
-                <CardTitle className="text-lg flex items-center text-yellow-400 font-semibold tracking-wide">
-                  <div className="p-1.5 rounded-full bg-yellow-400/10 mr-2.5 relative">
-                    <Package className="w-5 h-5 text-yellow-400" />
-                    {/* Glowing effect */}
-                    <div className="absolute inset-0 rounded-full bg-yellow-400/20 blur-sm animate-pulse-slow"></div>
-                  </div>
-                  Categories
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2.5 relative z-10">
-                {/* Yellow accent line */}
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-2/3 h-px bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent"></div>
-                
-                <Button
-                  variant={selectedCategory === "" ? "default" : "ghost"}
-                  className={`w-full justify-start rounded-lg font-medium transition-all duration-300 ${
-                    selectedCategory === "" 
-                      ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 shadow-md shadow-yellow-400/30" 
-                      : "text-white hover:text-yellow-400 hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20"
-                  }`}
-                  onClick={() => setSelectedCategory("")}
-                >
-                  <Package className="w-4 h-4 mr-2 opacity-80" />
-                  All Categories
-                  {selectedCategory === "" && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-white/10 to-yellow-400/0 rounded-lg animate-shimmer-slow"></div>
-                  )}
-                </Button>
-                
-                <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                  {/* Custom styling for scrollbar */}
-                  <style jsx global>{`
-                    .custom-scrollbar::-webkit-scrollbar {
-                      width: 5px;
-                    }
-                    .custom-scrollbar::-webkit-scrollbar-track {
-                      background: rgba(0,0,0,0.1);
-                      border-radius: 10px;
-                    }
-                    .custom-scrollbar::-webkit-scrollbar-thumb {
-                      background: rgba(255,204,0,0.2);
-                      border-radius: 10px;
-                    }
-                    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                      background: rgba(255,204,0,0.4);
-                    }
-                  `}</style>
-                  
-                  {categories.map((category, index) => (
-                    <Button
-                      key={category.name}
-                      variant={selectedCategory === category.name ? "default" : "ghost"}
-                      className={`w-full justify-start rounded-lg font-medium transition-all duration-300 ${
-                        selectedCategory === category.name 
-                          ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 shadow-md shadow-yellow-400/30" 
-                          : "text-white hover:text-yellow-400 hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20"
-                      }`}
-                      onClick={() => setSelectedCategory(category.name)}
-                    >
-                      {/* Icon mapping would be better here, using package as fallback */}
-                      <Package className="w-4 h-4 mr-2 opacity-80" />
-                      <span className="truncate">{category.name}</span>
-                      
-                      {selectedCategory === category.name && (
-                        <>
-                          <div className="absolute inset-0 border border-yellow-300 rounded-lg animate-pulse-slow opacity-30"></div>
-                          <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-white/10 to-yellow-400/0 rounded-lg animate-shimmer-slow"></div>
-                        </>
-                      )}
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Enhanced Brands with improved UI */}
-            <Card className="bg-transparent border-0 shadow-none relative">
-              <div className="absolute inset-0 bg-gradient-to-l from-yellow-400/5 to-transparent rounded-xl opacity-40"></div>
-              <CardHeader className="pb-3 relative z-10">
-                <CardTitle className="text-lg flex items-center text-yellow-400 font-semibold tracking-wide">
-                  <div className="p-1.5 rounded-full bg-yellow-400/10 mr-2.5 relative">
-                    <SlidersHorizontal className="w-5 h-5 text-yellow-400" />
-                    {/* Glowing effect */}
-                    <div className="absolute inset-0 rounded-full bg-yellow-400/20 blur-sm animate-pulse-slow"></div>
-                  </div>
-                  Brands
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2.5 relative z-10">
-                {/* Yellow accent line */}
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-2/3 h-px bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent"></div>
-                
-                <Button
-                  variant={selectedBrand === "" ? "default" : "ghost"}
-                  className={`w-full justify-start rounded-lg font-medium transition-all duration-300 ${
-                    selectedBrand === "" 
-                      ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 shadow-md shadow-yellow-400/30" 
-                      : "text-white hover:text-yellow-400 hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20"
-                  }`}
-                  onClick={() => setSelectedBrand("")}
-                >
-                  <svg className="w-4 h-4 mr-2 opacity-80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M6 8H4V16H6V8Z" fill="currentColor" />
-                    <path d="M9 5H7V19H9V5Z" fill="currentColor" />
-                    <path d="M12 8H10V16H12V8Z" fill="currentColor" />
-                    <path d="M15 3H13V21H15V3Z" fill="currentColor" />
-                    <path d="M18 8H16V16H18V8Z" fill="currentColor" />
-                    <path d="M21 5H19V19H21V5Z" fill="currentColor" />
-                  </svg>
-                  All Brands
-                  {selectedBrand === "" && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-white/10 to-yellow-400/0 rounded-lg animate-shimmer-slow"></div>
-                  )}
-                </Button>
-                
-                <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                  {brands.map((brand, idx) => (
-                    <Button
-                      key={brand.name}
-                      variant={selectedBrand === brand.name ? "default" : "ghost"}
-                      className={`w-full justify-start rounded-lg font-medium transition-all duration-300 ${
-                        selectedBrand === brand.name 
-                          ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 shadow-md shadow-yellow-400/30" 
-                          : "text-white hover:text-yellow-400 hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20"
-                      }`}
-                      onClick={() => setSelectedBrand(brand.name)}
-                      style={{
-                        transform: selectedBrand === brand.name ? 'scale(1.03)' : 'scale(1)',
-                        transitionDelay: `${idx * 50}ms`
-                      }}
-                    >
-                      {/* Logo placeholder - in a real app, you might use actual brand logos */}
-                      <div className="w-4 h-4 mr-2 rounded-sm bg-gradient-to-br from-yellow-400/30 to-yellow-600/30 flex items-center justify-center text-[10px] font-bold">
-                        {brand.name.charAt(0)}
-                      </div>
-                      <span className="truncate">{brand.name}</span>
-                      
-                      {selectedBrand === brand.name && (
-                        <>
-                          <div className="absolute inset-0 border border-yellow-300 rounded-lg animate-pulse-slow opacity-30"></div>
-                          <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-white/10 to-yellow-400/0 rounded-lg animate-shimmer-slow"></div>
-                        </>
-                      )}
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Price Range Filter - Adding this new filter */}
-            <Card className="bg-transparent border-0 shadow-none relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-b from-yellow-400/5 to-transparent rounded-xl opacity-40"></div>
-              <CardHeader className="pb-3 relative z-10">
-                <CardTitle className="text-lg flex items-center text-yellow-400 font-semibold tracking-wide">
-                  <div className="p-1.5 rounded-full bg-yellow-400/10 mr-2.5 relative">
-                    <svg className="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.58 20 4 16.42 4 12C4 7.58 7.58 4 12 4C16.42 4 20 7.58 20 12C20 16.42 16.42 20 12 20Z" fill="currentColor"/>
-                      <path d="M12 17C12.5523 17 13 16.5523 13 16C13 15.4477 12.5523 15 12 15C11.4477 15 11 15.4477 11 16C11 16.5523 11.4477 17 12 17Z" fill="currentColor"/>
-                      <path d="M13 7H11V14H13V7Z" fill="currentColor"/>
-                    </svg>
-                    {/* Glowing effect */}
-                    <div className="absolute inset-0 rounded-full bg-yellow-400/20 blur-sm animate-pulse-slow"></div>
-                  </div>
-                  Price Range
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-4 relative z-10">
-                {/* Range slider visualization */}
-                <div className="mt-2 mb-6 px-2">
-                  <div className="h-2 bg-yellow-400/20 rounded-full relative">
-                    <div 
-                      className="absolute top-0 left-0 h-2 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full"
-                      style={{ 
-                        width: `${((priceRange.max - priceRange.min) / 10000) * 100}%`,
-                        left: `${(priceRange.min / 10000) * 100}%` 
-                      }}
-                    ></div>
-                    {/* Slider handles */}
-                    <div 
-                      className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-yellow-400 rounded-full shadow-lg shadow-yellow-400/30 transform -translate-x-1/2"
-                      style={{ left: `${(priceRange.min / 10000) * 100}%` }}
-                    ></div>
-                    <div 
-                      className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-yellow-400 rounded-full shadow-lg shadow-yellow-400/30 transform -translate-x-1/2"
-                      style={{ left: `${(priceRange.max / 10000) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-                
-                {/* Price range input fields */}
-                <div className="flex space-x-3">
-                  <div className="flex-1">
-                    <label className="block text-sm text-gray-400 mb-1">Min ($)</label>
-                    <input 
-                      type="number" 
-                      value={priceRange.min}
-                      onChange={(e) => setPriceRange({...priceRange, min: parseInt(e.target.value) || 0})}
-                      className="w-full py-1.5 px-2 bg-black/60 border border-yellow-400/30 rounded-md text-white text-sm focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400"
-                      min="0"
-                      max={priceRange.max}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-sm text-gray-400 mb-1">Max ($)</label>
-                    <input 
-                      type="number" 
-                      value={priceRange.max}
-                      onChange={(e) => setPriceRange({...priceRange, max: parseInt(e.target.value) || priceRange.min})}
-                      className="w-full py-1.5 px-2 bg-black/60 border border-yellow-400/30 rounded-md text-white text-sm focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400"
-                      min={priceRange.min}
-                      max="10000"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Enhanced Clear Filters Button */}
-            <Button
-              variant="outline"
-              className="w-full border border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/10 hover:border-yellow-400/60 rounded-lg font-medium transition-all duration-300 py-6 group relative overflow-hidden"
-              onClick={clearFilters}
+          </div>
+        )}
+
+        {/* Premium Status Indicator - Removed */}
+        
+        <div className="container mx-auto px-6 py-12 relative z-10">
+          {/* Enhanced Premium Header Section */}
+          {mounted ? (
+            <motion.div 
+              initial={{ opacity: 0, y: -30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="mb-16"
             >
-              {/* Animated shine effect */}
-              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-yellow-400/0 via-white/20 to-yellow-400/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
+              <div className="bg-gradient-to-r from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl border-2 border-yellow-500/40 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+                {/* Golden Animated Border */}
+                <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 via-transparent to-yellow-400/20 animate-pulse rounded-3xl"></div>
               
-              <span className="relative flex items-center justify-center">
-                <Filter className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-                Reset All Filters
-              </span>
-            </Button>
-            
-            {/* Bottom decorative element */}
-            <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-yellow-400/10 to-transparent rounded-b-2xl"></div>
-          </aside>
-          {/* Main Content */}
-          <main className="flex-1">
-            {/* Enhanced Hero Section with advanced animations and design */}
-            <div className="mb-20 text-center relative overflow-hidden">
-              {/* Animated hero background elements */}
-              <div className="absolute inset-0 -z-10">
-                {/* Dynamic radial glow effect */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[140%] h-60 bg-gradient-to-r from-yellow-400/5 via-yellow-500/15 to-yellow-400/5 rounded-full blur-3xl animate-pulse-slow"></div>
-                
-                {/* Radial gradient overlay */}
-                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,rgba(0,0,0,0)_30%,rgba(0,0,0,0.9)_100%)]"></div>
-                
-                {/* Animated particle trails */}
-                <div className="absolute w-full h-full overflow-hidden opacity-20">
-                  <div className="absolute h-px w-1/4 bg-gradient-to-r from-transparent via-yellow-400/80 to-transparent top-[20%] left-[-100%] animate-[slideRight_15s_linear_infinite]"></div>
-                  <div className="absolute h-px w-1/4 bg-gradient-to-r from-transparent via-yellow-400/80 to-transparent top-[80%] left-[-100%] animate-[slideRight_20s_linear_infinite_3s]"></div>
-                  <div className="absolute h-px w-1/5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent top-[40%] left-[-100%] animate-[slideRight_12s_linear_infinite_1s]"></div>
-                  <div className="absolute h-px w-1/5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent top-[60%] left-[-100%] animate-[slideRight_18s_linear_infinite_2s]"></div>
-                </div>
-                
-                {/* Circuit-like pattern overlay */}
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48cGF0aCBmaWxsPSJub25lIiBzdHJva2U9InJnYmEoMjU1LCAyMTUsIDAsIDAuMDgpIiBzdHJva2Utd2lkdGg9IjAuNSIgZD0iTTAgMGgzMHYzMEgwek01MCAwaDMwdjMwSDUwek0wIDUwaDMwdjMwSDB6TTUwIDUwaDMwdjMwSDUwek0xNSAwdjMwTTAgMTVoMzBNNjUgMHYzME01MCAxNWgzME0xNSA1MHYzME0wIDY1aDMwTTY1IDUwdjMwTTUwIDY1aDMwIi8+PC9zdmc+')] opacity-30"></div>
-              </div>
-              
-              <div className="relative">
-                {/* Enhanced badge with 3D lighting effect */}
-                <div className="inline-block relative mb-6 transform hover:scale-105 transition-transform duration-300">
-                  <Badge 
-                    variant="outline" 
-                    className="py-2 px-8 bg-gradient-to-r from-black via-yellow-900/20 to-black border-yellow-500/60 text-yellow-400 rounded-full shadow-xl"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-yellow-400/10 to-yellow-400/0 rounded-full animate-pulse-slow"></div>
-                    <Package className="w-4 h-4 mr-2 text-yellow-300 animate-pulse-slow" /> 
-                    <span className="relative z-10 font-semibold tracking-wider">PREMIUM HARDWARE</span>
-                  </Badge>
-                  {/* Animated border glow */}
-                  <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/0 via-yellow-400/40 to-yellow-400/0 rounded-full blur-sm animate-shimmer-slow"></div>
-                </div>
-                
-                {/* Enhanced text with 3D appearance */}
-                <div className="relative">
-                  {/* Text shadow layers for 3D effect */}
-                  <h1 className="opacity-10 blur-md text-6xl sm:text-7xl font-black mb-4 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-200 to-yellow-500 absolute top-1 left-1/2 transform -translate-x-1/2">
-                    PC COMPONENTS
-                  </h1>
-                  <h1 className="opacity-20 blur-sm text-6xl sm:text-7xl font-black mb-4 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-200 to-yellow-500 absolute top-0.5 left-1/2 transform -translate-x-1/2">
-                    PC COMPONENTS
-                  </h1>
-                  <h1 className="text-6xl sm:text-7xl font-black mb-8 tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-yellow-300 via-yellow-500 to-yellow-600 drop-shadow-lg relative">
-                    PC COMPONENTS
-                  </h1>
-                </div>
-                
-                {/* Enhanced animated divider */}
-                <div className="relative h-2.5 w-40 mx-auto mb-10">
-                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-yellow-600 rounded-full shadow-lg shadow-yellow-500/30"></div>
-                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-yellow-400/80 to-yellow-400/0 rounded-full blur-md animate-shimmer-slow"></div>
-                  {/* Pulsing dot accents */}
-                  <div className="absolute -left-1 -top-1 w-4 h-4 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50 animate-pulse-slow"></div>
-                  <div className="absolute -right-1 -top-1 w-4 h-4 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50 animate-pulse-slow delay-500"></div>
-                </div>
-                
-                {/* Enhanced description with animated reveal */}
-                <div className="overflow-hidden">
-                  <p className="text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed animate-fade-in-slow">
-                    Build your dream PC with our premium components. Use our advanced filters to find 
-                    exactly what you need for your perfect high-performance setup.
-                    <span className="block mt-3 text-yellow-400/80 font-medium">Upgrade your experience. Elevate your performance.</span>
-                  </p>
-                </div>
-              </div>
-              
-              {/* Animated corner accents */}
-              <div className="absolute top-0 left-0 w-16 h-16 border-t-2 border-l-2 border-yellow-400/40 rounded-tl-xl"></div>
-              <div className="absolute top-0 right-0 w-16 h-16 border-t-2 border-r-2 border-yellow-400/40 rounded-tr-xl"></div>
-              <div className="absolute bottom-0 left-0 w-16 h-16 border-b-2 border-l-2 border-yellow-400/40 rounded-bl-xl"></div>
-              <div className="absolute bottom-0 right-0 w-16 h-16 border-b-2 border-r-2 border-yellow-400/40 rounded-br-xl"></div>
-            </div>
-            
-            {/* Enhanced Controls with advanced styling */}
-            <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-4 bg-gradient-to-r from-black/80 to-black/60 backdrop-blur-md p-5 rounded-xl border border-yellow-400/20 shadow-lg relative overflow-hidden">
-              {/* Background effects */}
-              <div className="absolute inset-0 overflow-hidden">
-                {/* Animated light scan effect */}
-                <div className="absolute inset-0 opacity-20">
-                  <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent -skew-x-12 -translate-x-full animate-[scan_8s_linear_infinite]"></div>
-                </div>
-                
-                {/* Corner accents */}
-                <div className="absolute top-0 left-0 w-16 h-16">
-                  <div className="absolute top-0 left-0 w-full h-full border-t-2 border-l-2 border-yellow-400/30 rounded-tl-lg"></div>
-                </div>
-                <div className="absolute bottom-0 right-0 w-16 h-16">
-                  <div className="absolute bottom-0 right-0 w-full h-full border-b-2 border-r-2 border-yellow-400/30 rounded-br-lg"></div>
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap items-center gap-2 md:gap-4 relative z-10">
-                {/* Enhanced results badge */}
-                <Badge className="py-2 px-4 bg-gradient-to-r from-yellow-400/30 to-yellow-500/20 text-yellow-400 border-yellow-400/30 font-medium text-sm shadow-sm">
-                  <div className="w-2 h-2 rounded-full bg-yellow-400 mr-2 animate-pulse"></div>
-                  {sortedProducts.length} products found
-                </Badge>
-                
-                {/* Active filter badges with enhanced styling */}
-                {(selectedCategory || selectedBrand || searchTerm || (priceRange.min > 0 || priceRange.max < 10000)) && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {selectedCategory && (
-                      <Badge 
-                        variant="secondary" 
-                        className="text-xs bg-yellow-400/20 text-yellow-400 border-yellow-400/30 px-3.5 py-2 flex items-center gap-1.5 font-medium animate-fade-in rounded-lg shadow-sm hover:bg-yellow-400/30 transition-colors cursor-pointer"
-                        onClick={() => setSelectedCategory("")}
-                      >
-                        <Package className="w-3 h-3" />
-                        {selectedCategory}
-                        <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center bg-yellow-400/20 hover:bg-yellow-400/40 transition-colors ml-1">
-                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 1L7 7M1 7L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
-                        </span>
-                      </Badge>
-                    )}
-                    
-                    {selectedBrand && (
-                      <Badge 
-                        variant="secondary" 
-                        className="text-xs bg-yellow-400/20 text-yellow-400 border-yellow-400/30 px-3.5 py-2 flex items-center gap-1.5 font-medium animate-fade-in rounded-lg shadow-sm hover:bg-yellow-400/30 transition-colors cursor-pointer"
-                        onClick={() => setSelectedBrand("")}
-                      >
-                        <SlidersHorizontal className="w-3 h-3" />
-                        {selectedBrand}
-                        <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center bg-yellow-400/20 hover:bg-yellow-400/40 transition-colors ml-1">
-                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 1L7 7M1 7L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
-                        </span>
-                      </Badge>
-                    )}
-                    
-                    {(priceRange.min > 0 || priceRange.max < 10000) && (
-                      <Badge 
-                        variant="secondary" 
-                        className="text-xs bg-yellow-400/20 text-yellow-400 border-yellow-400/30 px-3.5 py-2 flex items-center gap-1.5 font-medium animate-fade-in rounded-lg shadow-sm hover:bg-yellow-400/30 transition-colors cursor-pointer"
-                        onClick={() => setPriceRange({ min: 0, max: 10000 })}
-                      >
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 6V18M18 12H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                          <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" stroke="currentColor" strokeWidth="2" />
-                        </svg>
-                        ${priceRange.min} - ${priceRange.max}
-                        <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center bg-yellow-400/20 hover:bg-yellow-400/40 transition-colors ml-1">
-                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 1L7 7M1 7L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
-                        </span>
-                      </Badge>
-                    )}
-                    
-                    {searchTerm && (
-                      <Badge 
-                        variant="secondary" 
-                        className="text-xs bg-yellow-400/20 text-yellow-400 border-yellow-400/30 px-3.5 py-2 flex items-center gap-1.5 font-medium animate-fade-in rounded-lg shadow-sm hover:bg-yellow-400/30 transition-colors cursor-pointer"
-                        onClick={() => setSearchTerm("")}
-                      >
-                        <Search className="w-3 h-3" />
-                        "{searchTerm}"
-                        <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center bg-yellow-400/20 hover:bg-yellow-400/40 transition-colors ml-1">
-                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 1L7 7M1 7L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
-                        </span>
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-4 relative z-10">
-                {/* Enhanced Sort dropdown */}
-                <div className="relative group">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="appearance-none bg-gradient-to-r from-black/70 to-black/60 border border-yellow-400/30 text-white rounded-lg pl-8 pr-10 py-2.5 text-sm font-medium focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400/60 transition-all hover:border-yellow-400/50 cursor-pointer shadow-sm"
-                  >
-                    <option value="name">Name A-Z</option>
-                    <option value="price-low">Price: Low to High</option>
-                    <option value="price-high">Price: High to Low</option>
-                    <option value="rating">Highest Rated</option>
-                    <option value="newest">Newest</option>
-                  </select>
-                  
-                  {/* Custom dropdown icon */}
-                  <div className="absolute left-2.5 top-1/2 transform -translate-y-1/2">
-                    <svg className="w-4 h-4 text-yellow-400 opacity-80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M3 7H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M6 12H18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M9 17H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
+              <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+                <div className="flex items-center gap-6">
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-2xl blur-lg opacity-75 group-hover:opacity-100 animate-pulse"></div>
+                    <div className="relative p-4 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-2xl shadow-2xl transform group-hover:scale-105 transition-all duration-300">
+                      <Package className="w-10 h-10 text-black" />
+                    </div>
                   </div>
                   
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-yellow-400 pointer-events-none group-hover:text-yellow-300 transition-colors" />
-                  
-                  {/* Focus highlight effect */}
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-yellow-400 group-focus-within:w-[calc(100%-12px)] transition-all duration-300"></div>
-                </div>
-                
-                {/* Enhanced View Mode Toggle */}
-                <div className="flex items-center border border-yellow-400/40 rounded-lg overflow-hidden shadow-md bg-gradient-to-r from-black/70 to-black/60">
-                  <Button
-                    variant={viewMode === "grid" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("grid")}
-                    className={`rounded-r-none px-4 py-2.5 transition-all duration-300 relative overflow-hidden ${
-                      viewMode === "grid"
-                        ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 font-medium"
-                        : "text-white hover:text-yellow-400 hover:bg-yellow-400/10"
-                    }`}
-                  >
-                    <Grid3X3 className="w-4 h-4" />
-                    {viewMode === "grid" && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-white/20 to-yellow-400/0 transform -skew-x-12 -translate-x-full animate-[shimmer_2s_linear_infinite]"></div>
-                    )}
-                  </Button>
-                  <Button
-                    variant={viewMode === "list" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("list")}
-                    className={`rounded-l-none px-4 py-2.5 transition-all duration-300 relative overflow-hidden ${
-                      viewMode === "list"
-                        ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 font-medium"
-                        : "text-white hover:text-yellow-400 hover:bg-yellow-400/10"
-                    }`}
-                  >
-                    <List className="w-4 h-4" />
-                    {viewMode === "list" && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-white/20 to-yellow-400/0 transform -skew-x-12 -translate-x-full animate-[shimmer_2s_linear_infinite]"></div>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-            {/* Enhanced Products Grid/List with advanced animations */}
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-32">
-                {/* Enhanced loading animation with circuit pattern */}
-                <div className="relative mb-10">
-                  {/* Circuit board-like pattern background */}
-                  <div className="absolute -inset-12 rounded-full opacity-30">
-                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwgMjE1LCAwLCAwLjMpIiBzdHJva2Utd2lkdGg9IjAuNSIgZD0iTTEwIDEwSDkwVjkwSDEwek01MCAxMHY4ME0xMCA1MGg4ME0zMCAxMHY4ME0xMCAzMGg4ME03MCAxMHY4ME0xMCA3MGg4MCIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjMiIGZpbGw9InJnYmEoMjU1LCAyMTUsIDAsIDAuMykiLz48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIzIiBmaWxsPSJyZ2JhKDI1NSwgMjE1LCAwLCAwLjMpIi8+PGNpcmNsZSBjeD0iNzAiIGN5PSI3MCIgcj0iMyIgZmlsbD0icmdiYSgyNTUsIDIxNSwgMCwgMC4zKSIvPjxjaXJjbGUgY3g9IjMwIiBjeT0iNzAiIHI9IjMiIGZpbGw9InJnYmEoMjU1LCAyMTUsIDAsIDAuMykiLz48Y2lyY2xlIGN4PSI3MCIgY3k9IjMwIiByPSIzIiBmaWxsPSJyZ2JhKDI1NSwgMjE1LCAwLCAwLjMpIi8+PC9zdmc+')]"></div>
-                  </div>
-                  
-                  {/* Multiple concentric animated rings */}
-                  <div className="absolute inset-0 rounded-full border-4 border-yellow-400/10 animate-ping-slow"></div>
-                  <div className="absolute -inset-4 rounded-full border-4 border-yellow-400/5 animate-ping-slower"></div>
-                  <div className="absolute -inset-8 rounded-full border-4 border-yellow-400/5 animate-pulse-slow opacity-30"></div>
-                  
-                  {/* Enhanced spinning loader with gradient */}
-                  <div className="relative z-10 w-20 h-20 flex items-center justify-center">
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-yellow-400/20 to-yellow-600/20 animate-pulse-slow"></div>
-                    <svg className="w-20 h-20 animate-spin" viewBox="0 0 50 50">
-                      <circle cx="25" cy="25" r="20" fill="none" stroke="rgba(255, 215, 0, 0.1)" strokeWidth="4" />
-                      <circle cx="25" cy="25" r="20" fill="none" stroke="#ffd700" strokeWidth="4" strokeDasharray="60, 125" strokeLinecap="round" />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center">
-                        <Loader2 className="w-6 h-6 text-yellow-400" />
-                      </div>
+                  <div className="space-y-3">
+                    <h1 className="text-6xl font-black tracking-tight">
+                      <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-500 bg-clip-text text-transparent">
+                        Premium
+                      </span>
+                      <span className="text-white ml-4">Products</span>
+                    </h1>
+                    
+                    <div className="flex items-center gap-4 text-yellow-200">
+                      <Zap className="w-6 h-6 text-yellow-400 animate-pulse" />
+                      <span className="text-xl font-medium">
+                        {mounted ? (loading ? 'Loading elite inventory...' : `${filteredProducts.length} of ${products.length} premium products`) : 'Initializing premium catalog...'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <Badge className="bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-400 border border-green-400/40 px-4 py-2 rounded-full text-sm font-bold">
+                        💎 Premium Database
+                      </Badge>
+                      <Badge className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-400 border border-yellow-400/40 px-4 py-2 rounded-full text-sm font-bold">
+                        ⚡ Instant Search
+                      </Badge>
                     </div>
                   </div>
                 </div>
                 
-                {/* Enhanced loading text with typewriter effect */}
-                <div className="text-center space-y-2">
-                  <h3 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 inline-block">
-                    Loading premium components...
-                  </h3>
-                  <p className="text-gray-400 animate-pulse">Finding the best hardware for your setup</p>
-                  
-                  {/* Loading progress bar */}
-                  <div className="w-48 h-1 bg-yellow-400/20 rounded-full mt-4 mx-auto overflow-hidden">
-                    <div className="h-full w-1/3 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full animate-[loadingProgress_1.5s_ease-in-out_infinite_alternate]"></div>
+                {/* Enhanced View Mode Toggles */}
+                <div className="flex items-center gap-4">
+                  <div className="bg-black/60 backdrop-blur-sm border border-yellow-500/40 rounded-2xl p-2 flex gap-2">
+                    <Button 
+                      variant={viewMode === "grid" ? "default" : "ghost"}
+                      size="lg"
+                      onClick={() => setViewMode("grid")}
+                      className={`h-12 px-6 rounded-xl font-bold transition-all duration-300 ${
+                        viewMode === "grid" 
+                          ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                          : "text-yellow-300 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30"
+                      }`}
+                    >
+                      <Grid3X3 className="w-5 h-5 mr-2" />
+                      Grid View
+                    </Button>
+                    <Button 
+                      variant={viewMode === "list" ? "default" : "ghost"}
+                      size="lg"
+                      onClick={() => setViewMode("list")}
+                      className={`h-12 px-6 rounded-xl font-bold transition-all duration-300 ${
+                        viewMode === "list" 
+                          ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                          : "text-yellow-300 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30"
+                      }`}
+                    >
+                      <List className="w-5 h-5 mr-2" />
+                      List View
+                    </Button>
                   </div>
                 </div>
               </div>
-            ) : sortedProducts.length === 0 ? (
-              <div className="text-center py-32 max-w-xl mx-auto">
-                {/* Enhanced empty state with advanced styling */}
-                <div className="relative">
-                  <div className="absolute inset-0 -z-10">
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-yellow-400/5 blur-3xl"></div>
+            </div>
+          </motion.div>
+          ) : (
+            <div className="mb-16">
+              <div className="bg-gradient-to-r from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl border-2 border-yellow-500/40 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+                  <div className="flex items-center gap-6">
+                    <div className="p-4 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-2xl shadow-2xl">
+                      <Package className="w-10 h-10 text-black" />
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <h1 className="text-6xl font-black tracking-tight">
+                        <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-500 bg-clip-text text-transparent">
+                          Premium
+                        </span>
+                        <span className="text-white ml-4">Products</span>
+                      </h1>
+                      
+                      <div className="flex items-center gap-4 text-yellow-200">
+                        <Zap className="w-6 h-6 text-yellow-400" />
+                        <span className="text-xl font-medium">
+                          {mounted ? (loading ? 'Loading elite inventory...' : `${filteredProducts.length} of ${products.length} premium products`) : 'Initializing premium catalog...'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-4">
+                        <Badge className="bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-400 border border-green-400/40 px-4 py-2 rounded-full text-sm font-bold">
+                          💎 Premium Database
+                        </Badge>
+                        <Badge className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-400 border border-yellow-400/40 px-4 py-2 rounded-full text-sm font-bold">
+                          ⚡ Instant Search
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="bg-gradient-to-b from-yellow-400/20 to-yellow-400/5 w-28 h-28 rounded-full flex items-center justify-center mx-auto mb-10 shadow-inner shadow-yellow-400/10 border border-yellow-400/30 relative">
-                    <Package className="w-12 h-12 text-yellow-400/80" />
-                    {/* Animated orbit effect */}
-                    <div className="absolute inset-0 border-2 border-dashed border-yellow-400/20 rounded-full animate-spin-slow"></div>
-                    <div className="absolute top-0 -right-1 w-3 h-3 rounded-full bg-yellow-400/60 shadow-lg shadow-yellow-400/30 animate-pulse-slow"></div>
+                  <div className="flex items-center gap-4">
+                    <div className="bg-black/60 backdrop-blur-sm border border-yellow-500/40 rounded-2xl p-2 flex gap-2">
+                      <Button 
+                        variant={viewMode === "grid" ? "default" : "ghost"}
+                        size="lg"
+                        onClick={() => setViewMode("grid")}
+                        className={`h-12 px-6 rounded-xl font-bold transition-all duration-300 ${
+                          viewMode === "grid" 
+                            ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                            : "text-yellow-300 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30"
+                        }`}
+                      >
+                        <Grid3X3 className="w-5 h-5 mr-2" />
+                        Grid View
+                      </Button>
+                      <Button 
+                        variant={viewMode === "list" ? "default" : "ghost"}
+                        size="lg"
+                        onClick={() => setViewMode("list")}
+                        className={`h-12 px-6 rounded-xl font-bold transition-all duration-300 ${
+                          viewMode === "list" 
+                            ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                            : "text-yellow-300 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30"
+                        }`}
+                      >
+                        <List className="w-5 h-5 mr-2" />
+                        List View
+                      </Button>
+                    </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid lg:grid-cols-4 gap-10">
+            {/* Enhanced Premium Sidebar */}
+            {mounted ? (
+              <motion.div 
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="lg:col-span-1 space-y-8"
+              >
+              {/* Premium Search Section */}
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-amber-500/20 blur-xl rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+                <Card className="relative bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 border-2 border-yellow-500/50 rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/10 via-transparent to-yellow-400/10 animate-pulse rounded-3xl"></div>
                   
-                  <h3 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 mb-4">No products found</h3>
-                  <p className="text-lg text-gray-300 mb-8 max-w-md mx-auto">
-                    We couldn't find any products matching your current filters. Try adjusting your search criteria or clearing all filters.
-                  </p>
+                  <CardHeader className="relative pb-6 border-b border-yellow-500/30">
+                    <CardTitle className="text-2xl text-yellow-400 flex items-center gap-3 font-black">
+                      <div className="p-2 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-xl">
+                        <Search className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      Premium Search
+                    </CardTitle>
+                  </CardHeader>
                   
+                  <CardContent className="relative p-6">
+                    <div className="relative group/input">
+                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-2xl blur opacity-0 group-hover/input:opacity-100 transition-all duration-300"></div>
+                      <div className="relative">
+                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-yellow-400/70 w-6 h-6 z-10" />
+                        <Input
+                          placeholder="Search premium products..."
+                          value={searchQuery}
+                          onChange={handleSearchChange}
+                          className="relative h-14 pl-14 pr-4 bg-gradient-to-r from-black/80 to-gray-900/80 border-2 border-yellow-500/40 hover:border-yellow-400/70 focus:border-yellow-400 focus:shadow-lg focus:shadow-yellow-400/25 text-white text-lg placeholder-yellow-400/60 rounded-2xl transition-all duration-300 backdrop-blur-sm"
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-yellow-400/5 to-transparent pointer-events-none"></div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Clear Filters Button */}
+              {(selectedCategory || selectedBrand || searchQuery) && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                >
                   <Button 
                     onClick={clearFilters} 
-                    className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-black rounded-lg font-semibold px-10 py-6 shadow-lg shadow-yellow-400/20 relative overflow-hidden group"
+                    className="w-full h-14 bg-gradient-to-r from-gray-800/80 to-gray-900/80 hover:from-gray-700/80 hover:to-gray-800/80 text-yellow-300 hover:text-yellow-400 border-2 border-yellow-500/40 hover:border-yellow-400/60 rounded-2xl font-bold text-lg transition-all duration-300 backdrop-blur-sm"
                   >
-                    {/* Animated shine effect */}
-                    <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-yellow-400/0 via-white/20 to-yellow-400/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
-                    
-                    <span className="relative flex items-center">
-                      <Filter className="w-5 h-5 mr-3" />
-                      Reset All Filters
-                    </span>
+                    <X className="w-6 h-6 mr-3" />
+                    Clear All Filters
                   </Button>
+                </motion.div>
+              )}
+
+              {/* Enhanced Categories Section */}
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-amber-500/20 blur-xl rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+                <Card className="relative bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 border-2 border-yellow-500/50 rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-400/20 rounded-full blur-3xl animate-pulse"></div>
+                  
+                  <CardHeader className="relative pb-6 border-b border-yellow-500/30">
+                    <CardTitle className="text-2xl text-yellow-400 flex items-center gap-3 font-black">
+                      <div className="p-2 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-xl">
+                        <Filter className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      Elite Categories
+                    </CardTitle>
+                  </CardHeader>
+                  
+                  <CardContent className="relative p-6 space-y-3">
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <Button
+                        variant={selectedCategory === "" ? "default" : "ghost"}
+                        className={`w-full h-12 justify-start text-lg font-bold rounded-xl transition-all duration-300 ${
+                          selectedCategory === "" 
+                            ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                            : "text-white hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30 hover:border-yellow-400/50"
+                        }`}
+                        onClick={() => handleCategoryChange("")}
+                      >
+                        All Categories
+                      </Button>
+                    </motion.div>
+                    
+                    {categories.map((category, index) => (
+                      <motion.div 
+                        key={category.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        whileHover={{ scale: 1.02 }} 
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Button
+                          variant={selectedCategory === category.name ? "default" : "ghost"}
+                          className={`w-full h-12 justify-between text-lg font-bold rounded-xl transition-all duration-300 ${
+                            selectedCategory === category.name 
+                              ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                              : "text-white hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30 hover:border-yellow-400/50"
+                          }`}
+                          onClick={() => handleCategoryChange(category.name)}
+                        >
+                          <span>{category.name}</span>
+                          <Badge className="bg-black/60 text-yellow-300 border border-yellow-400/40 px-3 py-1 rounded-full font-bold">
+                            {products.filter(p => p.category === category.name).length}
+                          </Badge>
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Enhanced Brands Section */}
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-amber-500/20 blur-xl rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+                <Card className="relative bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 border-2 border-yellow-500/50 rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden">
+                  <div className="absolute -top-10 -left-10 w-32 h-32 bg-yellow-400/20 rounded-full blur-3xl animate-pulse delay-500"></div>
+                  
+                  <CardHeader className="relative pb-6 border-b border-yellow-500/30">
+                    <CardTitle className="text-2xl text-yellow-400 flex items-center gap-3 font-black">
+                      <div className="p-2 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-xl">
+                        <Star className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      Premium Brands
+                    </CardTitle>
+                  </CardHeader>
+                  
+                  <CardContent className="relative p-6 space-y-3">
+                    {brands.slice(0, 8).map((brand, index) => (
+                      <motion.div 
+                        key={brand.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 + 0.3 }}
+                        whileHover={{ scale: 1.02 }} 
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Button
+                          variant={selectedBrand === brand.name ? "default" : "ghost"}
+                          className={`w-full h-12 justify-between text-lg font-bold rounded-xl transition-all duration-300 ${
+                            selectedBrand === brand.name 
+                              ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                              : "text-white hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30 hover:border-yellow-400/50"
+                          }`}
+                          onClick={() => handleBrandChange(selectedBrand === brand.name ? "" : brand.name)}
+                        >
+                          <span>{brand.name}</span>
+                          <Badge className="bg-black/60 text-yellow-300 border border-yellow-400/40 px-3 py-1 rounded-full font-bold">
+                            {products.filter(p => p.brand === brand.name).length}
+                          </Badge>
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            </motion.div>
+            ) : (
+              <div className="lg:col-span-1 space-y-8">
+                {/* Static fallback for sidebar when not mounted */}
+                <div className="bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 border-2 border-yellow-500/50 rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden">
+                  <div className="p-6">
+                    <h3 className="text-xl text-yellow-400 font-bold mb-4">Loading Filters...</h3>
+                    <div className="space-y-3">
+                      <div className="h-12 bg-gray-800/50 rounded-xl animate-pulse"></div>
+                      <div className="h-12 bg-gray-800/50 rounded-xl animate-pulse"></div>
+                      <div className="h-12 bg-gray-800/50 rounded-xl animate-pulse"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <>
-                {/* Enhanced product grid with animation effects */}
-                <div 
-                  className={
-                    viewMode === "grid" 
-                      ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
-                      : "space-y-6"
-                  }
-                  style={{
-                    perspective: '1000px'
-                  }}
-                >
-                  {sortedProducts.map((product, index) => (
-                    <div 
-                      key={product.id}
-                      className="transform transition-all duration-500"
-                      style={{ 
-                        opacity: 0,
-                        transform: 'translateY(20px) scale(0.95)',
-                        animation: `fadeInUp 0.6s ease-out ${index * 0.08}s forwards`
-                      }}
-                    >
-                      <style jsx>{`
-                        @keyframes fadeInUp {
-                          from {
-                            opacity: 0;
-                            transform: translateY(20px) scale(0.95);
-                          }
-                          to {
-                            opacity: 1;
-                            transform: translateY(0) scale(1);
-                          }
-                        }
-                      `}</style>
-                      
-                      <ProductCard 
-                        product={product} 
-                        variant={viewMode === "list" ? "compact" : "default"}
-                      />
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Enhanced Pagination with advanced styling */}
-                {totalPages > 1 && (
-                  <div className="flex flex-col items-center justify-center space-y-4 mt-16 pt-10 relative">
-                    {/* Decorative pagination background */}
-                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-400/30 to-transparent"></div>
-                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-8 h-8">
-                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/30 to-yellow-500/30 rounded-full animate-pulse-slow"></div>
-                      <div className="absolute inset-1 bg-black rounded-full flex items-center justify-center">
-                        <div className="w-1 h-1 rounded-full bg-yellow-400 animate-pulse"></div>
-                      </div>
-                    </div>
-                    
-                    {/* Page info */}
-                    <div className="text-yellow-400/80 text-sm font-medium">
-                      Page {currentPage} of {totalPages}
-                    </div>
-                    
-                    <div className="flex justify-center items-center space-x-3">
-                      {/* Previous button with enhanced styling */}
-                      <Button
-                        variant="outline"
-                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
-                        className="border-yellow-400/30 text-white hover:bg-yellow-400/10 hover:text-yellow-400 hover:border-yellow-400/70 disabled:opacity-50 disabled:pointer-events-none rounded-xl font-medium px-6 py-3 transition-all group"
-                      >
-                        <div className="flex items-center">
-                          <div className="relative mr-2 w-5 h-5 flex items-center justify-center">
-                            <ChevronDown className="w-5 h-5 rotate-90 transform group-hover:-translate-x-1 transition-transform" />
-                          </div>
-                          Previous
-                        </div>
-                        
-                        {/* Button shine effect */}
-                        <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-yellow-400/0 via-yellow-400/10 to-yellow-400/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
-                      </Button>
-                      
-                      {/* Page numbers with enhanced styling */}
-                      <div className="flex items-center space-x-2">
-                        {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                          const page = i + 1;
-                          const isCurrentPage = currentPage === page;
-                          
-                          return (
-                            <Button
-                              key={page}
-                              variant={isCurrentPage ? "default" : "outline"}
-                              onClick={() => setCurrentPage(page)}
-                              className={`w-12 h-12 rounded-xl font-bold transition-all duration-300 relative overflow-hidden ${
-                                isCurrentPage
-                                  ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 shadow-lg shadow-yellow-400/20 scale-110"
-                                  : "border-yellow-400/30 text-white hover:bg-yellow-400/10 hover:text-yellow-400 hover:border-yellow-400/70"
-                              }`}
-                            >
-                              {page}
-                              
-                              {/* Current page indicator dot */}
-                              {isCurrentPage && (
-                                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-black rounded-full"></div>
-                              )}
-                              
-                              {/* Animated glow effect for current page */}
-                              {isCurrentPage && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-white/20 to-yellow-400/0 transform -skew-x-12 -translate-x-full animate-[shimmer_2s_linear_infinite]"></div>
-                              )}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                      
-                      {/* Next button with enhanced styling */}
-                      <Button
-                        variant="outline"
-                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages}
-                        className="border-yellow-400/30 text-white hover:bg-yellow-400/10 hover:text-yellow-400 hover:border-yellow-400/70 disabled:opacity-50 disabled:pointer-events-none rounded-xl font-medium px-6 py-3 transition-all group"
-                      >
-                        <div className="flex items-center">
-                          Next
-                          <div className="relative ml-2 w-5 h-5 flex items-center justify-center">
-                            <ChevronDown className="w-5 h-5 -rotate-90 transform group-hover:translate-x-1 transition-transform" />
-                          </div>
-                        </div>
-                        
-                        {/* Button shine effect */}
-                        <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-yellow-400/0 via-yellow-400/10 to-yellow-400/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
-                      </Button>
-                    </div>
-                    
-                    {/* Jump to page */}
-                    {totalPages > 5 && (
-                      <div className="flex items-center space-x-4 pt-2">
-                        <span className="text-sm text-gray-400">Jump to page:</span>
-                        <div className="relative w-16">
-                          <input 
-                            type="number" 
-                            min="1"
-                            max={totalPages}
-                            value={currentPage}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value);
-                              if (value >= 1 && value <= totalPages) {
-                                setCurrentPage(value);
-                              }
-                            }}
-                            className="w-full py-1 px-2 bg-black/60 border border-yellow-400/30 rounded-md text-white text-sm text-center focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Back to top button */}
-                <div className="flex justify-center mt-16">
-                  <Button
-                    variant="ghost"
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    className="text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/5 rounded-full w-12 h-12 flex items-center justify-center group transition-all duration-300"
-                  >
-                    <svg 
-                      width="24" 
-                      height="24" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="transform rotate-180 group-hover:-translate-y-1 transition-transform"
-                    >
-                      <path 
-                        d="M12 5V19M12 19L19 12M12 19L5 12" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </Button>
-                </div>
-              </>
             )}
-          </main>
+
+            {/* Enhanced Premium Products Grid */}
+            {mounted ? (
+              <motion.div 
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="lg:col-span-3"
+              >
+              {!mounted || loading ? (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-32 max-w-2xl mx-auto"
+                >
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/30 to-amber-500/30 blur-3xl rounded-full animate-pulse"></div>
+                    <div className="relative bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-xl border-2 border-yellow-500/50 rounded-3xl p-12 shadow-2xl">
+                      <div className="relative mb-8">
+                        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full blur opacity-75 animate-pulse"></div>
+                        <div className="relative w-24 h-24 mx-auto bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full flex items-center justify-center">
+                          <Package className="h-12 w-12 animate-spin text-black" />
+                        </div>
+                      </div>
+                      <h3 className="text-4xl font-black bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent mb-4">
+                        Loading Premium Products
+                      </h3>
+                      <p className="text-yellow-200 text-xl mb-8 flex items-center gap-3 justify-center">
+                        <Zap className="w-6 h-6 text-yellow-400" />
+                        Fetching elite inventory from database
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : filteredProducts.length === 0 ? (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-32 max-w-2xl mx-auto"
+                >
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 blur-3xl rounded-full"></div>
+                    <div className="relative bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-xl border-2 border-yellow-500/50 rounded-3xl p-12 shadow-2xl">
+                      <div className="w-24 h-24 mx-auto bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-full flex items-center justify-center mb-8 border-2 border-yellow-400/40">
+                        <Package className="h-12 w-12 text-yellow-400" />
+                      </div>
+                      <h3 className="text-4xl font-black text-white mb-4">No Premium Products Found</h3>
+                      <p className="text-yellow-200 text-xl mb-8">Try adjusting your search filters or explore different categories</p>
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button 
+                          onClick={clearFilters} 
+                          className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-500 hover:from-yellow-500 hover:via-amber-500 hover:to-orange-500 text-black font-black text-xl px-12 py-4 rounded-2xl shadow-2xl border-0 transition-all duration-300"
+                        >
+                          <X className="w-6 h-6 mr-3" />
+                          Clear All Filters
+                        </Button>
+                      </motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <>
+                  {/* Enhanced Results Header */}
+                  <motion.div 
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-10"
+                  >
+                    <div className="bg-gradient-to-r from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl border-2 border-yellow-500/40 rounded-2xl p-6 shadow-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-xl">
+                            <Package className="w-6 h-6 text-yellow-400" />
+                          </div>
+                          <div>
+                            <p className="text-yellow-100 text-2xl font-bold">
+                              Showing <span className="text-yellow-400 font-black">{filteredProducts.length}</span> premium products
+                            </p>
+                            <p className="text-yellow-300/70">Elite inventory curated for professionals</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-400 border border-green-400/50 px-6 py-3 rounded-full text-lg font-bold">
+                          ⚡ Instant Results
+                        </Badge>
+                      </div>
+                    </div>
+                  </motion.div>
+                  
+                  {/* Premium Products Grid */}
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className={`grid gap-8 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}
+                  >
+                    {filteredProducts.map((product, index) => (
+                      <motion.div
+                        key={product.id}
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: index * 0.1 }}
+                      >
+                        <DatabaseProductCard 
+                          product={product} 
+                          onAddToCart={addToCart}
+                          onQuickView={openQuickView}
+                          onAddToCompare={addToCompare}
+                          isInCompare={compareProducts.some(item => item.id === product.id)}
+                        />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </>
+              )}
+            </motion.div>
+            ) : (
+              <div className="lg:col-span-3">
+                <div className="text-center py-32">
+                  <div className="bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-xl border-2 border-yellow-500/50 rounded-3xl p-12 shadow-2xl max-w-2xl mx-auto">
+                    <div className="w-24 h-24 mx-auto bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full flex items-center justify-center mb-8">
+                      <Package className="h-12 w-12 text-black" />
+                    </div>
+                    <h3 className="text-4xl font-black text-white mb-4">Loading Premium Products</h3>
+                    <p className="text-yellow-200 text-xl">Initializing premium catalog...</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <Footer />
+      
+      {/* Simplified Quick View Modal */}
+      <Dialog open={showQuickView} onOpenChange={setShowQuickView}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-black/95 backdrop-blur-2xl border-0 text-white rounded-3xl shadow-2xl p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Product Quick View</DialogTitle>
+          </DialogHeader>
+          
+          {/* Background Effects */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(251,191,36,0.1),transparent_50%)]"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent"></div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500/60 to-transparent"></div>
+          </div>
+          
+          {/* Close Button */}
+          <motion.button
+            whileHover={{ scale: 1.1, rotate: 90 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowQuickView(false)}
+            className="absolute top-6 right-6 z-50 w-10 h-10 bg-red-500/20 backdrop-blur-sm border border-red-400/40 rounded-full flex items-center justify-center text-red-400 hover:text-red-300 transition-all duration-300"
+          >
+            <X className="w-5 h-5" />
+          </motion.button>
+          
+          {quickViewProduct && (
+            <div className="relative z-10 p-8">
+              {/* Compact Header */}
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-black bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent mb-2">
+                  Quick Preview
+                </h1>
+              </div>
+              
+              {/* Main Content - Single Row Layout */}
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Product Image */}
+                <div className="relative">
+                  <div className="bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-2xl aspect-square flex items-center justify-center border-2 border-yellow-300/50 shadow-2xl">
+                    <Package className="w-32 h-32 text-black/80" />
+                    
+                    {/* Price Badge */}
+                    <div className="absolute top-4 right-4 bg-black/90 backdrop-blur-sm rounded-xl px-4 py-2 border border-yellow-400/50">
+                      <span className="text-yellow-400 font-black text-xl">Rs. {quickViewProduct.price.toLocaleString()}</span>
+                    </div>
+                    
+                    {/* Stock Badge */}
+                    <div className="absolute top-4 left-4">
+                      <Badge className="bg-green-500/20 text-green-400 border border-green-400/50 px-3 py-1 rounded-full">
+                        {quickViewProduct.stock} in stock
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Essential Details */}
+                <div className="space-y-6">
+                  {/* Product Name & Brand */}
+                  <div>
+                    <h2 className="text-2xl font-bold text-white mb-2 line-clamp-2">
+                      {quickViewProduct.name}
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-yellow-400/20 text-yellow-400 border border-yellow-400/40 px-3 py-1 rounded-full">
+                        {quickViewProduct.brand}
+                      </Badge>
+                      <Badge className="bg-purple-500/20 text-purple-400 border border-purple-400/40 px-3 py-1 rounded-full">
+                        {quickViewProduct.category}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {/* Rating */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className={`w-5 h-5 ${i < quickViewProduct.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'}`} />
+                      ))}
+                    </div>
+                    <span className="text-yellow-300 font-bold">{quickViewProduct.rating}/5</span>
+                  </div>
+                  
+                  {/* Key Info */}
+                  <div className="bg-gradient-to-r from-gray-900/60 to-black/60 rounded-xl p-4 border border-yellow-500/30 space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-yellow-300">Price:</span>
+                      <span className="text-white font-bold">Rs. {quickViewProduct.price.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-yellow-300">Availability:</span>
+                      <span className="text-green-400 font-semibold">{quickViewProduct.stock} units</span>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={() => {
+                        addToCart(quickViewProduct);
+                        setShowQuickView(false);
+                      }}
+                      className="w-full h-12 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-orange-500 text-black font-bold rounded-xl transition-all duration-300"
+                    >
+                      <ShoppingCart className="w-5 h-5 mr-2" />
+                      Add to Cart
+                    </Button>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          addToCompare(quickViewProduct);
+                          setShowQuickView(false);
+                        }}
+                        className="border-yellow-500/40 text-yellow-300 hover:bg-yellow-400/10 rounded-xl"
+                      >
+                        <GitCompare className="w-4 h-4 mr-2" />
+                        Compare
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => alert('💝 Wishlist feature coming soon!')}
+                        className="border-pink-500/40 text-pink-300 hover:bg-pink-400/10 rounded-xl"
+                      >
+                        <Heart className="w-4 h-4 mr-2" />
+                        Wishlist
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Compare Modal */}
+      <Dialog open={showCompare} onOpenChange={setShowCompare}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-black via-gray-900 to-black border-2 border-yellow-500/50 text-white rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+              Product Comparison ({compareProducts.length}/3)
+            </DialogTitle>
+          </DialogHeader>
+          
+          {compareProducts.length > 0 ? (
+            <div className="p-6">
+              {/* Compare Actions */}
+              <div className="flex items-center justify-between mb-6">
+                <Badge className="bg-yellow-400/20 text-yellow-400 border border-yellow-400/40 px-4 py-2 rounded-full text-lg font-bold">
+                  {compareProducts.length} Products Selected
+                </Badge>
+                <Button 
+                  variant="outline"
+                  onClick={() => setCompareProducts([])}
+                  className="border-red-500/40 text-red-300 hover:bg-red-400/10"
+                >
+                  Clear All
+                </Button>
+              </div>
+              
+              {/* Comparison Table */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {compareProducts.map((product) => (
+                  <div key={product.id} className="bg-gradient-to-br from-gray-900/80 to-black/80 border border-yellow-500/30 rounded-2xl p-6 relative">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFromCompare(product.id)}
+                      className="absolute top-2 right-2 text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                    
+                    <div className="bg-gradient-to-br from-yellow-400 to-amber-500 rounded-xl aspect-square flex items-center justify-center mb-4">
+                      <Package className="w-16 h-16 text-black" />
+                    </div>
+                    
+                    <h4 className="text-lg font-bold text-white mb-4 line-clamp-2">{product.name}</h4>
+                    
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-yellow-300">Brand:</span>
+                        <span className="text-white font-semibold">{product.brand}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-yellow-300">Category:</span>
+                        <span className="text-white font-semibold">{product.category}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-yellow-300">Price:</span>
+                        <span className="text-yellow-400 font-bold">Rs. {product.price.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-yellow-300">Stock:</span>
+                        <span className="text-green-400 font-semibold">{product.stock} units</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-yellow-300">Rating:</span>
+                        <div className="flex items-center gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={`w-3 h-3 ${i < product.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'}`} />
+                          ))}
+                          <span className="text-white text-xs ml-1">{product.rating}/5</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      onClick={() => addToCart(product)}
+                      className="w-full mt-4 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-orange-500 text-black font-bold rounded-xl"
+                    >
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Add to Cart
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-24 h-24 mx-auto bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-full flex items-center justify-center mb-6">
+                <GitCompare className="w-12 h-12 text-yellow-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4">No Products to Compare</h3>
+              <p className="text-yellow-200 mb-6">Add some products to start comparing their features and specifications.</p>
+              <Button 
+                onClick={() => setShowCompare(false)}
+                className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold px-8 py-2 rounded-xl"
+              >
+                Continue Shopping
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Fixed Compare Button */}
+      {compareProducts.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-6 right-6 z-50"
+        >
+          <Button
+            onClick={openCompare}
+            className="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-orange-500 text-black font-bold px-6 py-3 rounded-full shadow-2xl shadow-yellow-400/50 border-2 border-yellow-300"
+          >
+            <GitCompare className="w-5 h-5 mr-2" />
+            Compare ({compareProducts.length})
+          </Button>
+        </motion.div>
+      )}
+
+      {/* Fixed Cart Button */}
+      {cartItemCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-6 left-6 z-50"
+        >
+          <Button
+            onClick={() => {
+              // Navigate to cart page
+              window.location.href = '/cart';
+            }}
+            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold px-6 py-3 rounded-full shadow-2xl shadow-green-400/50 border-2 border-green-400"
+          >
+            <ShoppingCart className="w-5 h-5 mr-2" />
+            Cart ({cartItemCount})
+          </Button>
+        </motion.div>
+      )}
     </>
   );
 }

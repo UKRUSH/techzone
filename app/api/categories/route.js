@@ -1,29 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { prisma, testDatabaseConnection } from '@/lib/prisma';
-
-// Mock categories data for fast loading
-const mockCategories = [
-  { id: "cpu", name: "CPU", slug: "cpu", description: "Central Processing Units", productCount: 150 },
-  { id: "gpu", name: "Graphics Cards", slug: "gpu", description: "Graphics Processing Units", productCount: 89 },
-  { id: "ram", name: "Memory", slug: "ram", description: "System Memory", productCount: 120 },
-  { id: "storage", name: "Storage", slug: "storage", description: "SSDs and Hard Drives", productCount: 200 },
-  { id: "motherboard", name: "Motherboards", slug: "motherboard", description: "Motherboards", productCount: 95 },
-  { id: "psu", name: "Power Supplies", slug: "psu", description: "Power Supply Units", productCount: 75 },
-  { id: "cooling", name: "Cooling", slug: "cooling", description: "CPU Coolers and Case Fans", productCount: 110 }
-];
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
-  // First check if database is available with fast timeout
-  const isDatabaseAvailable = await testDatabaseConnection();
-  
-  if (!isDatabaseAvailable) {
-    // Return mock data immediately if database is unavailable
-    return NextResponse.json(mockCategories);
-  }
-
   try {
+    console.log('📁 Fetching categories from MongoDB database...');
+
+    // Fetch categories from MongoDB
     const categories = await prisma.category.findMany({
       orderBy: { name: 'asc' },
       include: {
@@ -33,12 +17,48 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json(categories);
+    // Format categories for frontend
+    const formattedCategories = categories.map(category => ({
+      id: category.id,
+      name: category.name,
+      slug: category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), // Generate slug from name
+      description: category.description || '',
+      productCount: category._count.products,
+      image: category.image || "/api/placeholder/400/400",
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt
+    }));
+
+    console.log(`✅ Retrieved ${formattedCategories.length} categories from MongoDB`);
+
+    return NextResponse.json({
+      success: true,
+      data: formattedCategories,
+      message: `Found ${formattedCategories.length} categories in database`
+    });
+
   } catch (error) {
-    console.error('Error fetching categories:', error);
+    console.error('❌ Error fetching categories from MongoDB:', error);
     
-    // Return mock data when database query fails
-    return NextResponse.json(mockCategories);
+    // Fallback data if database is not available
+    const fallbackCategories = [
+      { id: "cpu", name: "CPU", slug: "cpu", description: "Central Processing Units", productCount: 0 },
+      { id: "gpu", name: "GPU", slug: "gpu", description: "Graphics Processing Units", productCount: 0 },
+      { id: "memory", name: "Memory", slug: "memory", description: "RAM and Memory modules", productCount: 0 },
+      { id: "storage", name: "Storage", slug: "storage", description: "Storage devices", productCount: 0 },
+      { id: "motherboard", name: "Motherboard", slug: "motherboard", description: "Motherboards", productCount: 0 },
+      { id: "power-supply", name: "Power Supply", slug: "power-supply", description: "Power Supply Units", productCount: 0 },
+      { id: "cooling", name: "Cooling", slug: "cooling", description: "Cooling solutions", productCount: 0 },
+      { id: "case", name: "Case", slug: "case", description: "PC Cases", productCount: 0 }
+    ];
+
+    console.log('🔄 Using fallback categories data');
+
+    return NextResponse.json({
+      success: true,
+      data: fallbackCategories,
+      message: 'Using fallback categories data (database unavailable)'
+    });
   }
 }
 

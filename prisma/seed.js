@@ -24,19 +24,19 @@ async function main() {
 
     // Create some sample categories
     const categories = [
-      { name: 'CPU' },
-      { name: 'GPU' },
-      { name: 'RAM' },
-      { name: 'Storage' },
-      { name: 'Motherboard' },
-      { name: 'PSU' },
-      { name: 'Cooling' },
-      { name: 'Cases' }
+      { name: 'CPU', slug: 'cpu', description: 'Central Processing Units' },
+      { name: 'GPU', slug: 'gpu', description: 'Graphics Processing Units' },
+      { name: 'RAM', slug: 'ram', description: 'Random Access Memory' },
+      { name: 'Storage', slug: 'storage', description: 'Storage Devices' },
+      { name: 'Motherboard', slug: 'motherboard', description: 'Motherboards' },
+      { name: 'PSU', slug: 'psu', description: 'Power Supply Units' },
+      { name: 'Cooling', slug: 'cooling', description: 'Cooling Solutions' },
+      { name: 'Cases', slug: 'cases', description: 'PC Cases' }
     ];
 
     for (const category of categories) {
       await prisma.category.upsert({
-        where: { name: category.name },
+        where: { slug: category.slug },
         update: {},
         create: category
       });
@@ -46,21 +46,21 @@ async function main() {
 
     // Create some sample brands
     const brands = [
-      { name: 'AMD' },
-      { name: 'Intel' },
-      { name: 'NVIDIA' },
-      { name: 'ASUS' },
-      { name: 'MSI' },
-      { name: 'Corsair' },
-      { name: 'Samsung' },
-      { name: 'Western Digital' },
-      { name: 'Seagate' },
-      { name: 'Gigabyte' }
+      { name: 'AMD', slug: 'amd', description: 'Advanced Micro Devices' },
+      { name: 'Intel', slug: 'intel', description: 'Intel Corporation' },
+      { name: 'NVIDIA', slug: 'nvidia', description: 'NVIDIA Corporation' },
+      { name: 'ASUS', slug: 'asus', description: 'ASUS Computer International' },
+      { name: 'MSI', slug: 'msi', description: 'Micro-Star International' },
+      { name: 'Corsair', slug: 'corsair', description: 'Corsair Gaming Inc.' },
+      { name: 'Samsung', slug: 'samsung', description: 'Samsung Electronics' },
+      { name: 'Western Digital', slug: 'western-digital', description: 'Western Digital Corporation' },
+      { name: 'Seagate', slug: 'seagate', description: 'Seagate Technology' },
+      { name: 'Gigabyte', slug: 'gigabyte', description: 'Gigabyte Technology' }
     ];
 
     for (const brand of brands) {
       await prisma.brand.upsert({
-        where: { name: brand.name },
+        where: { slug: brand.slug },
         update: {},
         create: brand
       });

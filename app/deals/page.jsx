@@ -1,11 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { 
   Tag, 
@@ -13,393 +14,263 @@ import {
   Star,
   ShoppingCart,
   ArrowRight,
-  Loader2,
   Percent,
-  Zap
+  Zap,
+  Filter,
+  Search,
+  Heart,
+  TrendingUp,
+  Timer,
+  Gift,
+  Sparkles,
+  DollarSign,
+  Package,
+  Shield,
+  Loader2,
+  XCircle
 } from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
-
-// Mock deals data for fast loading
-const mockDeals = [
-  {
-    id: "deal-1",
-    title: "Intel Core i7-13700K",
-    description: "High-performance processor for gaming and productivity",
-    originalPrice: 449.99,
-    discountedPrice: 409.99,
-    discountPercentage: 9,
-    image: "/api/placeholder/400/400",
-    category: "CPU",
-    brand: "Intel",
-    rating: 4.8,
-    reviews: 256,
-    stock: 45,
-    expiresAt: "2025-07-10T23:59:59.000Z",
-    featured: true,
-    tags: ["Hot Deal", "Limited Time"]
-  },
-  {
-    id: "deal-2",
-    title: "NVIDIA GeForce RTX 4070",
-    description: "Next-gen graphics card for 1440p gaming",
-    originalPrice: 649.99,
-    discountedPrice: 599.99,
-    discountPercentage: 8,
-    image: "/api/placeholder/400/400",
-    category: "Graphics Cards",
-    brand: "NVIDIA",
-    rating: 4.7,
-    reviews: 189,
-    stock: 23,
-    expiresAt: "2025-07-08T23:59:59.000Z",
-    featured: true,
-    tags: ["Flash Sale", "Best Seller"]
-  },
-  {
-    id: "deal-3",
-    title: "Corsair Vengeance RGB Pro 32GB",
-    description: "High-speed DDR4 RAM with RGB lighting",
-    originalPrice: 159.99,
-    discountedPrice: 129.99,
-    discountPercentage: 19,
-    image: "/api/placeholder/400/400",
-    category: "Memory",
-    brand: "Corsair",
-    rating: 4.6,
-    reviews: 432,
-    stock: 67,
-    expiresAt: "2025-07-12T23:59:59.000Z",
-    featured: false,
-    tags: ["Great Value"]
-  },
-  {
-    id: "deal-4",
-    title: "Samsung 980 PRO 1TB SSD",
-    description: "High-speed NVMe SSD for gaming and professional use",
-    originalPrice: 119.99,
-    discountedPrice: 89.99,
-    discountPercentage: 25,
-    image: "/api/placeholder/400/400",
-    category: "Storage",
-    brand: "Samsung",
-    rating: 4.9,
-    reviews: 672,
-    stock: 134,
-    expiresAt: "2025-07-15T23:59:59.000Z",
-    featured: false,
-    tags: ["Super Saver"]
-  },
-  {
-    id: "deal-5",
-    title: "ASUS ROG Strix Z690-E",
-    description: "Premium motherboard with Wi-Fi 6E and RGB",
-    originalPrice: 379.99,
-    discountedPrice: 329.99,
-    discountPercentage: 13,
-    image: "/api/placeholder/400/400",
-    category: "Motherboards",
-    brand: "ASUS",
-    rating: 4.7,
-    reviews: 198,
-    stock: 28,
-    expiresAt: "2025-07-09T23:59:59.000Z",
-    featured: false,
-    tags: ["Premium"]
-  },
-  {
-    id: "deal-6",
-    title: "Corsair RM850x 850W PSU",
-    description: "Fully modular 80+ Gold certified power supply",
-    originalPrice: 149.99,
-    discountedPrice: 129.99,
-    discountPercentage: 13,
-    image: "/api/placeholder/400/400",
-    category: "Power Supplies",
-    brand: "Corsair",
-    rating: 4.8,
-    reviews: 345,
-    stock: 89,
-    expiresAt: "2025-07-14T23:59:59.000Z",
-    featured: false,
-    tags: ["Reliable"]
-  }
-];
-
-// Fetch function for React Query
-const fetchDeals = async () => {
-  try {
-    const response = await fetch('/api/deals');
-    if (!response.ok) {
-      throw new Error('Failed to fetch deals');
-    }
-    return response.json();
-  } catch (error) {
-    // Return mock data if API fails
-    return mockDeals;
-  }
-};
-
-// Helper function to calculate time remaining
-const getTimeRemaining = (expiresAt) => {
-  const now = new Date();
-  const expiry = new Date(expiresAt);
-  const diff = expiry - now;
-  
-  if (diff <= 0) return "Expired";
-  
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  
-  if (days > 0) return `${days}d ${hours}h left`;
-  return `${hours}h left`;
-};
+import { FastLink } from "@/components/navigation/FastNavigation";
 
 export default function DealsPage() {
-  // Use React Query for optimized data fetching
-  const { data: deals = [], isLoading, error } = useQuery({
-    queryKey: ['deals'],
-    queryFn: fetchDeals,
-    // Cache for 2 minutes (deals change more frequently)
-    staleTime: 2 * 60 * 1000,
+  const [deals, setDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+
+  useEffect(() => {
+    fetchDeals();
+  }, []);
+
+  const fetchDeals = async () => {
+    try {
+      const response = await fetch('/api/products?onSale=true', {
+        cache: 'no-store'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setDeals(result.data || []);
+        } else {
+          setError('Failed to load deals');
+        }
+      } else {
+        setError('Server error occurred');
+      }
+    } catch (error) {
+      console.error('Deals fetch failed:', error);
+      setError('Failed to connect to server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter deals based on search and category
+  const filteredDeals = deals.filter(deal => {
+    const matchesSearch = deal.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === "all" || deal.category === selectedCategory;
+    return matchesSearch && matchesCategory;
   });
 
-  // Separate featured and regular deals
-  const featuredDeals = deals.filter(deal => deal.featured);
-  const regularDeals = deals.filter(deal => !deal.featured);
+  // Get unique categories for filter
+  const categories = ["all", ...new Set(deals.map(deal => deal.category))];
 
-  return (
-    <>
-      <Header />
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8">
-          {/* Header */}
-          <div className="mb-12 text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <h1 className="text-4xl font-bold text-primary mb-4 flex items-center justify-center gap-3">
-                <Tag className="h-10 w-10 text-yellow-500" />
-                Special Deals & Offers
-              </h1>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Discover amazing discounts on top PC components. Limited time offers - grab them before they're gone!
-              </p>
-            </motion.div>
-          </div>
-
-          {/* Loading State */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-2 text-muted-foreground">Loading deals...</span>
-            </div>
-          ) : error ? (
-            <div className="text-center py-20">
-              <p className="text-red-500 mb-4">Failed to load deals</p>
-              <Button onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
-            </div>
-          ) : (
-            <>
-              {/* Featured Deals */}
-              {featuredDeals.length > 0 && (
-                <div className="mb-16">
-                  <div className="flex items-center gap-3 mb-8">
-                    <Zap className="h-6 w-6 text-yellow-500" />
-                    <h2 className="text-2xl font-bold text-primary">Featured Deals</h2>
-                  </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {featuredDeals.map((deal, index) => (
-                      <motion.div
-                        key={deal.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: index * 0.1 }}
-                      >
-                        <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-yellow-500/50 bg-gradient-to-br from-yellow-50/5 to-orange-50/5">
-                          <CardHeader className="pb-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  {deal.tags.map((tag, i) => (
-                                    <Badge key={i} variant="secondary" className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300">
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                                </div>
-                                <CardTitle className="text-xl text-primary group-hover:text-primary/80 transition-colors">
-                                  {deal.title}
-                                </CardTitle>
-                                <CardDescription className="text-sm text-muted-foreground mt-2">
-                                  {deal.description}
-                                </CardDescription>
-                              </div>
-                              <div className="relative w-24 h-24 ml-4">
-                                <Image
-                                  src={deal.image}
-                                  alt={deal.title}
-                                  fill
-                                  className="object-cover rounded-md"
-                                />
-                              </div>
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-2xl font-bold text-primary">${deal.discountedPrice}</span>
-                                  <span className="text-lg text-muted-foreground line-through">${deal.originalPrice}</span>
-                                  <Badge variant="destructive" className="bg-red-500">
-                                    -{deal.discountPercentage}%
-                                  </Badge>
-                                </div>
-                                <div className="text-right">
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                    {deal.rating} ({deal.reviews})
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <Clock className="h-4 w-4" />
-                                  {getTimeRemaining(deal.expiresAt)}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  {deal.stock} in stock
-                                </div>
-                              </div>
-                              
-                              <Link href={`/products/${deal.id}`}>
-                                <Button className="w-full bg-yellow-600 hover:bg-yellow-700">
-                                  <ShoppingCart className="h-4 w-4 mr-2" />
-                                  Add to Cart
-                                </Button>
-                              </Link>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Regular Deals */}
-              <div>
-                <div className="flex items-center gap-3 mb-8">
-                  <Percent className="h-6 w-6 text-primary" />
-                  <h2 className="text-2xl font-bold text-primary">All Deals</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {regularDeals.map((deal, index) => (
-                    <motion.div
-                      key={deal.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: index * 0.1 }}
-                    >
-                      <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-border hover:border-primary/50 bg-card">
-                        <CardHeader className="pb-4">
-                          <div className="relative w-full h-48 mb-4">
-                            <Image
-                              src={deal.image}
-                              alt={deal.title}
-                              fill
-                              className="object-cover rounded-md"
-                            />
-                            <div className="absolute top-2 right-2">
-                              <Badge variant="destructive" className="bg-red-500">
-                                -{deal.discountPercentage}%
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              {deal.tags.map((tag, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
-                            <CardTitle className="text-lg text-primary group-hover:text-primary/80 transition-colors line-clamp-2">
-                              {deal.title}
-                            </CardTitle>
-                            <CardDescription className="text-sm text-muted-foreground line-clamp-2">
-                              {deal.description}
-                            </CardDescription>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xl font-bold text-primary">${deal.discountedPrice}</span>
-                                <span className="text-sm text-muted-foreground line-through">${deal.originalPrice}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                {deal.rating}
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center justify-between text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {getTimeRemaining(deal.expiresAt)}
-                              </div>
-                              <div>{deal.stock} left</div>
-                            </div>
-                            
-                            <Link href={`/products/${deal.id}`}>
-                              <Button className="w-full" variant="outline">
-                                <ShoppingCart className="h-4 w-4 mr-2" />
-                                Add to Cart
-                              </Button>
-                            </Link>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Call to Action */}
-          <div className="mt-16 text-center">
-            <Card className="bg-gradient-to-r from-primary/10 to-yellow-500/10 border-primary/20">
-              <CardContent className="py-12">
-                <h3 className="text-2xl font-bold text-primary mb-4">
-                  Don't Miss Out on Future Deals!
-                </h3>
-                <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-                  Subscribe to our newsletter to get notified about flash sales, 
-                  exclusive discounts, and new product launches.
-                </p>
-                <div className="flex gap-4 justify-center items-center max-w-md mx-auto">
-                  <input
-                    type="email"
-                    placeholder="Enter your email"
-                    className="flex-1 px-4 py-2 rounded-md border border-border bg-background text-foreground"
-                  />
-                  <Button className="bg-primary hover:bg-primary/90">
-                    Subscribe
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900">
+        <Header />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-yellow-400 mx-auto mb-4" />
+            <p className="text-white/70">Loading deals...</p>
           </div>
         </div>
+        <Footer />
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900">
+        <Header />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <XCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+            <h2 className="text-red-400 text-lg font-semibold mb-2">Error Loading Deals</h2>
+            <p className="text-white/70 mb-4">{error}</p>
+            <Button
+              onClick={fetchDeals}
+              className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium"
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900">
+      <Header />
+      
+      {/* Hero Section */}
+      <section className="pt-8 pb-16 relative overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute top-20 right-20 w-64 h-64 bg-yellow-500/5 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-20 w-72 h-72 bg-yellow-500/10 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="container mx-auto px-4 relative">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-12"
+          >
+            <div className="inline-flex items-center bg-yellow-500/10 px-4 py-2 rounded-full mb-6 border border-yellow-500/30">
+              <Percent className="w-5 h-5 text-yellow-400 mr-2" />
+              <span className="text-yellow-400 font-semibold">Special Offers</span>
+            </div>
+            
+            <h1 className="text-5xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 mb-6">
+              Amazing Deals
+            </h1>
+            
+            <p className="text-xl text-white/80 max-w-2xl mx-auto leading-relaxed">
+              Discover incredible discounts on top-quality tech products. Limited time offers you don't want to miss!
+            </p>
+          </motion.div>
+
+          {/* Search and Filter */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="flex flex-col md:flex-row gap-4 mb-8"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
+              <Input
+                placeholder="Search deals..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-black/50 border-yellow-500/30 text-white placeholder:text-white/50"
+              />
+            </div>
+            
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-4 py-2 bg-black/50 border border-yellow-500/30 rounded-md text-white"
+            >
+              {categories.map(category => (
+                <option key={category} value={category}>
+                  {category === "all" ? "All Categories" : category.charAt(0).toUpperCase() + category.slice(1)}
+                </option>
+              ))}
+            </select>
+          </motion.div>
+
+          {/* Deals Grid */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          >
+            {filteredDeals.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <Package className="h-16 w-16 text-white/30 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-white/70 mb-2">No deals found</h3>
+                <p className="text-white/50">Try adjusting your search or filters</p>
+              </div>
+            ) : (
+              filteredDeals.map((deal, index) => (
+                <motion.div
+                  key={deal.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.05 }}
+                  whileHover={{ y: -8, scale: 1.02 }}
+                  className="h-full"
+                >
+                  <Card className="group h-full hover:shadow-2xl transition-all duration-300 cursor-pointer border-yellow-500/30 hover:border-yellow-500/60 overflow-hidden relative bg-gradient-to-b from-black to-zinc-950">
+                    {/* Sale Badge */}
+                    {deal.onSale && (
+                      <div className="absolute top-4 left-4 z-10">
+                        <Badge className="bg-red-500 text-white font-bold px-2 py-1">
+                          SALE
+                        </Badge>
+                      </div>
+                    )}
+
+                    {/* Product Image */}
+                    <div className="relative overflow-hidden">
+                      {deal.image ? (
+                        <img
+                          src={deal.image}
+                          alt={deal.name}
+                          className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-48 bg-gradient-to-br from-yellow-500/20 to-black flex items-center justify-center">
+                          <Package className="h-16 w-16 text-yellow-400/50" />
+                        </div>
+                      )}
+                    </div>
+
+                    <CardContent className="p-6">
+                      <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-yellow-400 transition-colors">
+                        {deal.name}
+                      </h3>
+                      
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <span className="text-2xl font-bold text-yellow-400">
+                            Rs. {deal.price?.toLocaleString()}
+                          </span>
+                          {deal.originalPrice && deal.originalPrice > deal.price && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-white/60 line-through">
+                                Rs. {deal.originalPrice.toLocaleString()}
+                              </span>
+                              <Badge variant="destructive" className="text-xs">
+                                {Math.round(((deal.originalPrice - deal.price) / deal.originalPrice) * 100)}% OFF
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                          <span className="text-sm text-white/70">
+                            {deal.rating || 4.5} ({deal.reviews || 0} reviews)
+                          </span>
+                        </div>
+                        
+                        <FastLink href={`/products/${deal.id}`}>
+                          <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium">
+                            <ShoppingCart className="h-4 w-4 mr-1" />
+                            Buy Now
+                          </Button>
+                        </FastLink>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))
+            )}
+          </motion.div>
+        </div>
+      </section>
+
       <Footer />
-    </>
+    </div>
   );
 }

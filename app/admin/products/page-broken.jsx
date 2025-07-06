@@ -49,151 +49,95 @@ export default function AdminProductsPage() {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeView, setActiveView] = useState("grid"); // "grid" or "table"
+  const [activeView, setActiveView] = useState("grid");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [dashboardStats, setDashboardStats] = useState(null);
 
-  // Mock data for demonstration
-  const mockProducts = [
-    {
-      id: "1",
-      name: "AMD Ryzen 9 7900X",
-      category: { name: "CPU" },
-      brand: { name: "AMD" },
-      variants: [
-        { id: "v1", sku: "AMD-7900X-001", price: 599.99, attributes: {} }
-      ],
-      totalStock: 45,
-      averageRating: 4.8,
-      reviewCount: 124,
-      createdAt: new Date(),
-      images: [],
-      status: "In Stock"
-    },
-    {
-      id: "2",
-      name: "NVIDIA GeForce RTX 4080 SUPER",
-      category: { name: "GPU" },
-      brand: { name: "NVIDIA" },
-      variants: [
-        { id: "v2", sku: "NV-4080S-001", price: 999.99, attributes: {} }
-      ],
-      totalStock: 23,
-      averageRating: 4.9,
-      reviewCount: 89,
-      createdAt: new Date(),
-      images: [],
-      status: "Featured"
-    },
-    {
-      id: "3",
-      name: "Samsung 980 PRO NVMe SSD 2TB",
-      category: { name: "Storage" },
-      brand: { name: "Samsung" },
-      variants: [
-        { id: "v3", sku: "SAM-980P-2TB", price: 229.99, attributes: {} }
-      ],
-      totalStock: 78,
-      averageRating: 4.7,
-      reviewCount: 231,
-      createdAt: new Date(),
-      images: [],
-      status: "In Stock"
-    },
-    {
-      id: "4",
-      name: "ASUS ROG Strix X670E-E Gaming WiFi",
-      category: { name: "Motherboard" },
-      brand: { name: "ASUS" },
-      variants: [
-        { id: "v4", sku: "ASUS-X670E-001", price: 499.99, attributes: {} }
-      ],
-      totalStock: 12,
-      averageRating: 4.6,
-      reviewCount: 67,
-      createdAt: new Date(),
-      images: [],
-      status: "Low Stock"
-    }
-  ];
+  // Helper function to compute product status based on available data
+  const getProductStatus = (product) => {
+    if (!product) return 'Unknown';
+    
+    // Check if product has variants with stock info
+    const totalStock = product.variants?.reduce((sum, variant) => {
+      return sum + (variant.stock || 0);
+    }, 0) || 0;
+    
+    // Check if it's a featured product (you can customize this logic)
+    const isFeatured = product.name?.toLowerCase().includes('featured') || 
+                      product.name?.toLowerCase().includes('rtx') ||
+                      product.name?.toLowerCase().includes('flagship');
+    
+    if (isFeatured) return 'Featured';
+    if (totalStock === 0) return 'Out of Stock';
+    if (totalStock <= 5) return 'Low Stock';
+    return 'In Stock';
+  };
 
-  // Mock stats with enhanced visual styling
+  // Stats computed from real data
   const stats = [
     {
       title: "Total Products",
-      value: "247",
-      change: "+12%",
-      positive: true,
+      value: products.length.toString(),
       icon: Package,
-      bg: "from-yellow-500/20 to-yellow-700/20",
-      iconColor: "text-yellow-500"
+      bg: "from-blue-500/20 to-blue-600/20",
+      iconColor: "text-blue-400"
     },
     {
-      title: "Total Revenue",
-      value: "$89,432",
-      change: "+8.2%",
-      positive: true,
-      icon: DollarSign,
-      bg: "from-emerald-500/20 to-emerald-700/20",
-      iconColor: "text-emerald-500"
+      title: "Categories",
+      value: categories.length.toString(),
+      icon: Layers,
+      bg: "from-green-500/20 to-green-600/20",
+      iconColor: "text-green-400"
     },
     {
-      title: "Active Users",
-      value: "1,429",
-      change: "+5.1%",
-      positive: true,
+      title: "Brands",
+      value: brands.length.toString(),
       icon: Users,
-      bg: "from-blue-500/20 to-blue-700/20",
-      iconColor: "text-blue-500"
+      bg: "from-purple-500/20 to-purple-600/20",
+      iconColor: "text-purple-400"
     },
     {
-      title: "Orders Today",
-      value: "34",
-      change: "+18%",
-      positive: true,
+      title: "In Stock",
+      value: products.filter(p => p.stock > 0).length.toString(),
       icon: ShoppingCart,
-      bg: "from-purple-500/20 to-purple-700/20", 
-      iconColor: "text-purple-500"
+      bg: "from-yellow-500/20 to-yellow-600/20",
+      iconColor: "text-yellow-400"
     }
   ];
 
   useEffect(() => {
     fetchProducts();
     fetchFilters();
-
-    // Add subtle background animations
-    const interval = setInterval(() => {
-      const dots = document.querySelectorAll('.animated-dot');
-      dots.forEach(dot => {
-        const x = Math.random() * 20 - 10;
-        const y = Math.random() * 20 - 10;
-        dot.style.transform = `translate(${x}px, ${y}px)`;
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const fetchProducts = async () => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/products?limit=100');
-      const data = await response.json();
+      console.log('🔄 Fetching products...');
+      
+      // Try fast API first, then fallback
+      let response = await fetch('/api/products/fast');
+      
+      if (!response.ok) {
+        console.log('⚠️ Fast products API failed, trying fallback...');
+        response = await fetch('/api/products/fallback');
+      }
       
       if (response.ok) {
-        setProducts(data.products || []);
+        const result = await response.json();
+        const productsData = result.success ? result.data : result.products || result;
+        setProducts(Array.isArray(productsData) ? productsData : []);
+        console.log(`✅ Loaded ${Array.isArray(productsData) ? productsData.length : 0} products`);
       } else {
-        console.error("Error fetching products:", data.error);
-        // Set mock data as fallback
-        setProducts(mockProducts);
+        console.warn("Failed to fetch products from all APIs");
+        setProducts([]);
       }
     } catch (error) {
       console.error("Error fetching products:", error);
-      // Set mock data as fallback
-      setProducts(mockProducts);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -201,20 +145,35 @@ export default function AdminProductsPage() {
 
   const fetchFilters = async () => {
     try {
-      const [categoriesRes, brandsRes] = await Promise.all([
-        fetch('/api/categories'),
-        fetch('/api/brands')
+      // Try main APIs first, then fallback
+      const fetchWithFallback = async (endpoint, fallbackEndpoint) => {
+        try {
+          // Try fallback first for speed, then main API
+          let response = await fetch(fallbackEndpoint);
+          if (!response.ok) {
+            console.log(`⚠️ ${fallbackEndpoint} failed, trying main API...`);
+            response = await fetch(endpoint);
+          }
+          if (response.ok) {
+            const result = await response.json();
+            return result.success ? result.data : result;
+          }
+          return [];
+        } catch (error) {
+          console.error(`Error fetching from ${endpoint}:`, error);
+          return [];
+        }
+      };
+
+      const [categoriesData, brandsData] = await Promise.all([
+        fetchWithFallback('/api/categories', '/api/categories/fallback'),
+        fetchWithFallback('/api/brands', '/api/brands/fallback')
       ]);
       
-      if (categoriesRes.ok) {
-        const categoriesData = await categoriesRes.json();
-        setCategories(categoriesData);
-      }
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      setBrands(Array.isArray(brandsData) ? brandsData : []);
       
-      if (brandsRes.ok) {
-        const brandsData = await brandsRes.json();
-        setBrands(brandsData);
-      }
+      console.log(`✅ Loaded ${categoriesData.length} categories and ${brandsData.length} brands`);
     } catch (error) {
       console.error("Error fetching filters:", error);
     }
@@ -252,7 +211,6 @@ export default function AdminProductsPage() {
         console.log('Delete response ok:', response.ok);
 
         if (response.ok) {
-          // Remove from local state
           setProducts(products.filter(p => p.id !== productId));
           alert('Product deleted successfully');
         } else {
@@ -271,255 +229,154 @@ export default function AdminProductsPage() {
     setProducts([newProduct, ...products]);
   };
 
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-yellow-500">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative overflow-hidden">
-      {/* Decorative Elements */}
-      <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-yellow-500/5 blur-3xl animate-pulse-slow"></div>
-      <div className="absolute top-1/3 -left-40 w-80 h-80 rounded-full bg-yellow-600/5 blur-3xl animate-pulse-slower"></div>
-      <div className="absolute bottom-20 right-20 w-60 h-60 rounded-full bg-yellow-400/5 blur-3xl animate-pulse-slow"></div>
-      
-      {/* Animated dots */}
-      <div className="absolute top-40 right-20 w-2 h-2 rounded-full bg-yellow-400/60 shadow-lg shadow-yellow-400/20 animated-dot"></div>
-      <div className="absolute top-1/2 left-32 w-1.5 h-1.5 rounded-full bg-yellow-500/60 shadow-lg shadow-yellow-500/20 animated-dot"></div>
-      <div className="absolute bottom-40 right-1/3 w-2 h-2 rounded-full bg-yellow-300/60 shadow-lg shadow-yellow-300/20 animated-dot"></div>
-      
-      {/* Grid pattern overlay */}
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0wIDBoNjB2NjBIMHoiLz48cGF0aCBkPSJNMzAgMzBoMzB2MzBIMzB6IiBzdHJva2U9InJnYmEoMjU1LDIxNSwwLDAuMDMpIiBzdHJva2Utd2lkdGg9Ii41Ii8+PHBhdGggZD0iTTAgMzBoMzB2MzBIMHoiIHN0cm9rZT0icmdiYSgyNTUsMjE1LDAsMC4wMykiIHN0cm9rZS13aWR0aD0iLjUiLz48L2c+PC9zdmc+')] opacity-20"></div>
-      
-      <div className="container mx-auto px-4 py-8 relative z-10">
-        {/* Header */}
-        <motion.div 
-          className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
+    <div className="relative overflow-hidden bg-black min-h-screen">
+      {/* Header */}
+      <motion.div 
+        className="mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-              className="inline-block"
-            >
-              <Badge 
-                variant="outline" 
-                className="mb-4 py-1.5 px-6 bg-gradient-to-r from-black/60 to-yellow-600/30 border-yellow-500/40 text-yellow-500 rounded-full shadow-md relative overflow-hidden group"
-              >
-                <Sparkles className="w-3.5 h-3.5 mr-1.5 text-yellow-400 group-hover:scale-110 transition-transform" /> 
-                Admin Dashboard
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-400/0 via-yellow-400/30 to-yellow-400/0 rounded-full blur-sm animate-shimmer-slow"></div>
-              </Badge>
-            </motion.div>
-            
-            <h1 className="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 drop-shadow-md">
-              Product Management
+            <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600">
+              Products Dashboard
             </h1>
-            
-            <div className="w-20 h-1 bg-gradient-to-r from-yellow-400 to-yellow-600 mb-3 rounded-full shadow-lg shadow-yellow-500/20"></div>
-            <p className="text-gray-300 mt-2 text-lg">Manage your product catalog and inventory</p>
+            <p className="text-gray-400 mt-2">Manage your product inventory and details</p>
           </div>
           
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-medium shadow-lg hover:shadow-xl transition-all px-6 py-6">
-                <Plus className="w-5 h-5 mr-2" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[525px] bg-zinc-900 border-yellow-500/20 shadow-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold text-yellow-500">Create New Product</DialogTitle>
-                <DialogDescription className="text-gray-300">Fill out the details to add a new product to your store.</DialogDescription>
-              </DialogHeader>
-              <CreateProductDialog 
-                onClose={() => setIsCreateDialogOpen(false)} 
-                categories={categories}
-                brands={brands}
-                onProductCreated={handleProductCreated}
-              />
-            </DialogContent>
-          </Dialog>
-        </motion.div>
-
-        {/* Stats Cards */}
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-        >
-          {stats.map((stat, index) => (
-            <motion.div
-              key={index}
-              variants={fadeIn}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              whileHover={{ y: -5, transition: { duration: 0.2 } }}
-            >
-              <Card className="bg-gradient-to-br from-zinc-900 to-black border-zinc-800 hover:border-yellow-500/30 hover:shadow-lg transition-all duration-300">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-300">
-                    {stat.title}
-                  </CardTitle>
-                  <div className={`p-2 rounded-full bg-gradient-to-br ${stat.bg}`}>
-                    <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-white">{stat.value}</div>
-                  <p className={`text-xs flex items-center mt-2 ${stat.positive ? 'text-emerald-500' : 'text-red-500'}`}>
-                    <ArrowUpRight className="h-3 w-3 mr-1" />
-                    {stat.change} from last month
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* View Toggle and Search */}
-        <motion.div 
-          className="flex flex-col md:flex-row gap-6 items-center justify-between mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          <div className="flex items-center gap-2 p-1 bg-zinc-900/50 rounded-xl border border-zinc-800">
-            <Button 
-              variant={activeView === 'grid' ? 'default' : 'ghost'} 
-              size="sm"
-              onClick={() => setActiveView('grid')}
-              className={activeView === 'grid' ? 
-                'bg-gradient-to-r from-yellow-500 to-yellow-600 text-black' : 
-                'text-gray-300 hover:text-yellow-500'}
-            >
-              <Layers className="h-4 w-4 mr-2" />
-              Grid
-            </Button>
-            <Button 
-              variant={activeView === 'table' ? 'default' : 'ghost'} 
-              size="sm"
-              onClick={() => setActiveView('table')}
-              className={activeView === 'table' ? 
-                'bg-gradient-to-r from-yellow-500 to-yellow-600 text-black' : 
-                'text-gray-300 hover:text-yellow-500'}
-            >
-              <BarChart className="h-4 w-4 mr-2" />
-              Table
-            </Button>
+          <div className="flex items-center gap-4">
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-medium shadow-lg">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[525px] bg-zinc-900 border-yellow-500/20">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold text-yellow-500">Create New Product</DialogTitle>
+                  <DialogDescription className="text-gray-300">
+                    Add a new product to your inventory.
+                  </DialogDescription>
+                </DialogHeader>
+                <CreateProductDialog 
+                  onClose={() => setIsCreateDialogOpen(false)} 
+                  categories={categories}
+                  brands={brands}
+                  onProductCreated={handleProductCreated}
+                />
+              </DialogContent>
+            </Dialog>
           </div>
-          
-          <Card className="w-full md:w-auto bg-transparent border-0 shadow-none">
-            <CardContent className="p-0">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-yellow-500" />
-                  <Input
-                    placeholder="Search products..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-zinc-900 border-zinc-800 focus:border-yellow-500/50 focus:ring-1 focus:ring-yellow-500/20 text-white min-w-[300px]"
-                  />
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      className="border-zinc-800 text-gray-300 hover:text-yellow-500 hover:bg-yellow-500/5 hover:border-yellow-500/30"
-                    >
-                      <Filter className="w-4 h-4 mr-2" />
-                      {activeFilter === 'all' ? 'All Products' : activeFilter}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="bg-zinc-900 border-zinc-800 text-white">
-                    <DropdownMenuItem 
-                      onClick={() => setActiveFilter('all')}
-                      className={`${activeFilter === 'all' ? 'bg-yellow-500/20 text-yellow-500' : ''} cursor-pointer hover:bg-yellow-500/10 hover:text-yellow-500`}
-                    >
-                      All Products
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => setActiveFilter('In Stock')}
-                      className={`${activeFilter === 'In Stock' ? 'bg-yellow-500/20 text-yellow-500' : ''} cursor-pointer hover:bg-yellow-500/10 hover:text-yellow-500`}
-                    >
-                      In Stock
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => setActiveFilter('Low Stock')}
-                      className={`${activeFilter === 'Low Stock' ? 'bg-yellow-500/20 text-yellow-500' : ''} cursor-pointer hover:bg-yellow-500/10 hover:text-yellow-500`}
-                    >
-                      Low Stock
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => setActiveFilter('Featured')}
-                      className={`${activeFilter === 'Featured' ? 'bg-yellow-500/20 text-yellow-500' : ''} cursor-pointer hover:bg-yellow-500/10 hover:text-yellow-500`}
-                    >
-                      Featured
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        </div>
+      </motion.div>
 
-      {/* Products Display */}
-      <motion.div
-        variants={fadeIn}
+      {/* Stats Cards */}
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
+        variants={staggerContainer}
         initial="initial"
         animate="animate"
+      >
+        {stats.map((stat, index) => (
+          <motion.div
+            key={index}
+            variants={fadeIn}
+            transition={{ duration: 0.5, delay: index * 0.1 }}
+            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+          >
+            <Card className="bg-gradient-to-br from-zinc-900 to-black border-zinc-800 hover:border-yellow-500/30 hover:shadow-lg transition-all duration-300">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-300">
+                  {stat.title}
+                </CardTitle>
+                <div className={`p-2 rounded-full bg-gradient-to-br ${stat.bg}`}>
+                  <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{stat.value}</div>
+                <p className="text-xs text-gray-400 flex items-center mt-1">
+                  <ArrowUpRight className="h-3 w-3 mr-1 text-green-400" />
+                  +12% from last month
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Search and Filters */}
+      <motion.div 
+        className="mb-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+      >
+        <Card className="bg-gradient-to-br from-zinc-900 to-black border-zinc-800">
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-zinc-800 border-zinc-700 text-white placeholder-gray-400 focus:border-yellow-500"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={activeView === "grid" ? "default" : "outline"}
+                  onClick={() => setActiveView("grid")}
+                  className={activeView === "grid" ? "bg-yellow-500 text-black" : "border-zinc-700 text-gray-300 hover:bg-zinc-800"}
+                >
+                  <Layers className="h-4 w-4 mr-2" />
+                  Grid
+                </Button>
+                <Button
+                  variant={activeView === "table" ? "default" : "outline"}
+                  onClick={() => setActiveView("table")}
+                  className={activeView === "table" ? "bg-yellow-500 text-black" : "border-zinc-700 text-gray-300 hover:bg-zinc-800"}
+                >
+                  <BarChart className="h-4 w-4 mr-2" />
+                  Table
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Products Grid/Table */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.5 }}
       >
-        <Card className="bg-gradient-to-br from-zinc-900 to-black border-zinc-800 hover:border-zinc-700 transition-all duration-300">
-          <CardHeader className="border-b border-zinc-800/50 pb-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="text-xl text-white">Products <span className="text-yellow-500">({filteredProducts.length})</span></CardTitle>
-                <CardDescription className="text-gray-300 mt-1">
-                  Manage your product inventory and details
-                </CardDescription>
-              </div>
-              
-              {activeFilter !== 'all' && (
-                <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30 hover:bg-yellow-500/30 transition-colors cursor-pointer" onClick={() => setActiveFilter('all')}>
-                  {activeFilter} ×
-                </Badge>
-              )}
-            </div>
+        <Card className="bg-gradient-to-br from-zinc-900 to-black border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-white">Products ({filteredProducts.length})</CardTitle>
+            <CardDescription className="text-gray-400">
+              Manage your product inventory
+            </CardDescription>
           </CardHeader>
-          
-          <CardContent className="pt-6">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="relative">
-                  <div className="w-16 h-16 rounded-full border-4 border-yellow-500/30 animate-ping absolute"></div>
-                  <div className="h-16 w-16 animate-spin text-yellow-500 relative border-4 border-yellow-500/50 border-t-transparent rounded-full"></div>
-                </div>
-                <span className="text-gray-300 text-lg mt-6 font-medium">Loading products...</span>
-              </div>
-            ) : filteredProducts.length === 0 ? (
+          <CardContent>
+            {activeView === "grid" ? (
               <motion.div 
-                className="text-center py-16 max-w-md mx-auto"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5 }}
-              >
-                <div className="bg-yellow-500/10 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Search className="h-10 w-10 text-yellow-500/70" />
-                </div>
-                <p className="text-2xl font-medium mb-3 text-yellow-500">No products found</p>
-                <p className="text-gray-300 mb-8">Try searching with different keywords or clear filters</p>
-                <Button 
-                  onClick={() => { setSearchTerm(""); setActiveFilter("all"); }}
-                  variant="outline" 
-                  size="lg" 
-                  className="border-yellow-500/30 hover:border-yellow-500/50 text-yellow-500/90"
-                >
-                  View All Products
-                </Button>
-              </motion.div>
-            ) : activeView === 'grid' ? (
-              <motion.div 
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 variants={staggerContainer}
                 initial="initial"
                 animate="animate"
@@ -532,41 +389,54 @@ export default function AdminProductsPage() {
                     whileHover={{ y: -5, scale: 1.02, transition: { duration: 0.2 } }}
                     className="h-full"
                   >
-                    <Card className="h-full bg-gradient-to-b from-zinc-900 to-black hover:shadow-xl transition-all duration-300 border-zinc-800 hover:border-yellow-500/30 overflow-hidden group">
-                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-yellow-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></div>
+                    <Card className="h-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 hover:shadow-2xl hover:shadow-yellow-500/10 transition-all duration-500 border border-zinc-700/50 hover:border-yellow-500/50 overflow-hidden group relative">
+                      {/* Animated gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-yellow-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                       
-                      <CardHeader className="pb-2">
+                      {/* Top accent line */}
+                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-700"></div>
+                      
+                      {/* Corner decoration */}
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-yellow-500/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200"></div>
+                      
+                      <CardHeader className="pb-2 relative z-10">
                         <div className="flex justify-between items-start">
                           <div className="flex items-center space-x-3">
-                            <div className="p-2 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                              <Package className="h-5 w-5 text-yellow-500" />
+                            <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                              <Package className="h-6 w-6 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-300" />
                             </div>
                             <div>
-                              <CardTitle className="text-white group-hover:text-yellow-500 transition-colors duration-200">
+                              <CardTitle className="text-white group-hover:text-yellow-400 transition-colors duration-300 text-lg font-bold">
                                 {product.name}
                               </CardTitle>
-                              <CardDescription className="text-gray-300 mt-1">
-                                {product.brand?.name || 'Unknown Brand'}
+                              <CardDescription className="text-gray-400 group-hover:text-gray-300 transition-colors duration-300 font-medium">
+                                {(product.category?.name || 'Unknown Category').toUpperCase()}
                               </CardDescription>
                             </div>
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-yellow-500 hover:bg-transparent">
+                              <Button variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 hover:scale-110 transition-all duration-300 rounded-lg">
                                 <MoreHorizontal className="h-5 w-5" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800">
-                              <DropdownMenuItem className="text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-500 cursor-pointer" onClick={() => handleViewProduct(product)}>
+                            <DropdownMenuContent align="end" className="bg-zinc-900/95 backdrop-blur-sm border-zinc-700/50 shadow-2xl">
+                              <DropdownMenuItem 
+                                className="text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400 cursor-pointer transition-all duration-200 rounded-md"
+                                onClick={() => handleViewProduct(product)}
+                              >
                                 <Eye className="mr-2 h-4 w-4" />
-                                View
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-500 cursor-pointer" onClick={() => handleEditProduct(product)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
+                                View Details
                               </DropdownMenuItem>
                               <DropdownMenuItem 
-                                className="text-red-400 hover:bg-red-500/10 cursor-pointer"
+                                className="text-gray-300 hover:bg-blue-500/10 hover:text-blue-400 cursor-pointer transition-all duration-200 rounded-md"
+                                onClick={() => handleEditProduct(product)}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Product
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-red-400 hover:bg-red-500/10 hover:text-red-300 cursor-pointer transition-all duration-200 rounded-md"
                                 onClick={() => handleDeleteProduct(product.id)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -577,61 +447,65 @@ export default function AdminProductsPage() {
                         </div>
                       </CardHeader>
                       
-                      <CardContent className="pb-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <Badge variant="secondary" className="bg-zinc-800 text-gray-300 font-normal">
-                            {product.category?.name || 'Unknown Category'}
+                      <CardContent className="pb-6 relative z-10">
+                        <div className="flex items-center justify-between mb-6">
+                          <Badge variant="secondary" className="bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 text-yellow-400 border-yellow-500/20 font-medium">
+                            {(product.category?.name || 'Unknown Category').toUpperCase()}
                           </Badge>
                           <Badge 
-                            className={`
-                              ${(product.status || 'In Stock') === 'In Stock' ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' : 
-                                (product.status || 'In Stock') === 'Featured' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' : 
-                                (product.status || 'In Stock') === 'Low Stock' ? 'bg-amber-500/20 text-amber-500 border-amber-500/30' : 
-                                'bg-gray-500/20 text-gray-500 border-gray-500/30'}
-                            `}
+                            className={`font-medium ${
+                              getProductStatus(product) === 'Featured' ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-emerald-400 border-emerald-500/20' : 
+                              getProductStatus(product) === 'Low Stock' ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-rose-400 border-rose-500/20' : 
+                              'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-cyan-400 border-cyan-500/20'
+                            }`}
                           >
-                            {product.status || 'In Stock'}
+                            {getProductStatus(product)}
                           </Badge>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
-                          <div className="bg-zinc-900/50 p-2 rounded-md">
-                            <div className="text-gray-400 text-xs">Price</div>
-                            <div className="text-white font-medium">${product.variants?.[0]?.price || 0}</div>
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center p-3 bg-zinc-800/30 rounded-lg border border-zinc-700/30 hover:border-yellow-500/30 transition-colors duration-300">
+                            <span className="text-gray-400 text-sm font-medium flex items-center">
+                              <DollarSign className="h-4 w-4 mr-1 text-yellow-500" />
+                              Price
+                            </span>
+                            <span className="text-white font-bold text-lg">${product.variants?.[0]?.price || 0}</span>
                           </div>
-                          <div className="bg-zinc-900/50 p-2 rounded-md">
-                            <div className="text-gray-400 text-xs">Stock</div>
-                            <div className="text-white font-medium">{product.totalStock || 0}</div>
+                          <div className="flex justify-between items-center p-3 bg-zinc-800/30 rounded-lg border border-zinc-700/30 hover:border-blue-500/30 transition-colors duration-300">
+                            <span className="text-gray-400 text-sm font-medium flex items-center">
+                              <Package className="h-4 w-4 mr-1 text-blue-500" />
+                              Stock
+                            </span>
+                            <span className="text-white font-bold text-lg">{product.totalStock || 0}</span>
                           </div>
-                          <div className="bg-zinc-900/50 p-2 rounded-md">
-                            <div className="text-gray-400 text-xs">Rating</div>
-                            <div className="text-white font-medium flex items-center">
-                              {product.averageRating} 
-                              <span className="text-yellow-500 ml-1">★</span>
-                            </div>
-                          </div>
-                          <div className="bg-zinc-900/50 p-2 rounded-md">
-                            <div className="text-gray-400 text-xs">Reviews</div>
-                            <div className="text-white font-medium">{product.reviewCount}</div>
+                          <div className="flex justify-between items-center p-3 bg-zinc-800/30 rounded-lg border border-zinc-700/30 hover:border-purple-500/30 transition-colors duration-300">
+                            <span className="text-gray-400 text-sm font-medium flex items-center">
+                              <Layers className="h-4 w-4 mr-1 text-purple-500" />
+                              Brand
+                            </span>
+                            <span className="text-white font-bold text-lg">{(product.brand?.name || 'N/A').toUpperCase()}</span>
                           </div>
                         </div>
+                        
+                        {/* Bottom gradient line */}
+                        <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                       </CardContent>
                     </Card>
                   </motion.div>
                 ))}
               </motion.div>
             ) : (
-              <div className="overflow-hidden rounded-md border border-zinc-800">
+              <div className="rounded-lg border border-zinc-800 overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-zinc-900/70 border-b border-zinc-800">
+                  <table className="w-full">
+                    <thead className="bg-zinc-800/50">
+                      <tr className="border-b border-zinc-800">
                         <th className="h-10 px-4 text-left font-medium text-gray-300">Product</th>
                         <th className="h-10 px-4 text-left font-medium text-gray-300">Category</th>
                         <th className="h-10 px-4 text-left font-medium text-gray-300">Brand</th>
                         <th className="h-10 px-4 text-right font-medium text-gray-300">Price</th>
                         <th className="h-10 px-4 text-right font-medium text-gray-300">Stock</th>
-                        <th className="h-10 px-4 text-right font-medium text-gray-300">Status</th>
+                        <th className="h-10 px-4 text-left font-medium text-gray-300">Status</th>
                         <th className="h-10 px-4 text-right font-medium text-gray-300">Actions</th>
                       </tr>
                     </thead>
@@ -649,28 +523,37 @@ export default function AdminProductsPage() {
                               <span className="font-medium text-white">{product.name}</span>
                             </div>
                           </td>
-                          <td className="p-4 align-middle text-gray-300">{product.category?.name || 'N/A'}</td>
-                          <td className="p-4 align-middle text-gray-300">{product.brand?.name || 'N/A'}</td>
+                          <td className="p-4 align-middle text-gray-300 font-medium">{(product.category?.name || 'N/A').toUpperCase()}</td>
+                          <td className="p-4 align-middle text-gray-300 font-medium">{(product.brand?.name || 'N/A').toUpperCase()}</td>
                           <td className="p-4 align-middle text-right text-white">${product.variants?.[0]?.price || 0}</td>
                           <td className="p-4 align-middle text-right text-white">{product.totalStock || 0}</td>
-                          <td className="p-4 align-middle text-right">
+                          <td className="p-4 align-middle">
                             <Badge 
-                              className={`
-                                ${(product.status || 'In Stock') === 'In Stock' ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' : 
-                                  (product.status || 'In Stock') === 'Featured' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' : 
-                                  (product.status || 'In Stock') === 'Low Stock' ? 'bg-amber-500/20 text-amber-500 border-amber-500/30' : 
-                                  'bg-gray-500/20 text-gray-500 border-gray-500/30'}
-                              `}
+                              className={`font-medium ${
+                                getProductStatus(product) === 'Featured' ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-emerald-400 border-emerald-500/20' : 
+                                getProductStatus(product) === 'Low Stock' ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-rose-400 border-rose-500/20' : 
+                                'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-cyan-400 border-cyan-500/20'
+                              }`}
                             >
-                              {product.status || 'In Stock'}
+                              {getProductStatus(product)}
                             </Badge>
                           </td>
                           <td className="p-4 align-middle text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-yellow-500 hover:bg-yellow-500/10" onClick={() => handleViewProduct(product)}>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-gray-400 hover:text-yellow-500 hover:bg-yellow-500/10"
+                                onClick={() => handleViewProduct(product)}
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-yellow-500 hover:bg-yellow-500/10" onClick={() => handleEditProduct(product)}>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-gray-400 hover:text-yellow-500 hover:bg-yellow-500/10"
+                                onClick={() => handleEditProduct(product)}
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button 
@@ -693,133 +576,6 @@ export default function AdminProductsPage() {
           </CardContent>
         </Card>
       </motion.div>
-      
-      {/* Enhanced Call to Action */}
-      <motion.div 
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.8 }}
-        className="mt-16 mb-10"
-      >
-        <Card className="bg-gradient-to-br from-black via-zinc-900 to-yellow-950/5 border-yellow-500/20 hover:border-yellow-500/40 hover:shadow-2xl transition-all duration-500">
-          <CardContent className="py-12 px-8">
-            <div className="max-w-lg mx-auto text-center">
-              <div className="bg-gradient-to-br from-yellow-500/20 to-yellow-700/20 w-16 h-16 flex items-center justify-center rounded-full mx-auto mb-6 shadow-inner">
-                <Sparkles className="h-8 w-8 text-yellow-500" />
-              </div>
-              <h3 className="text-2xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 drop-shadow-sm">
-                Need to add new products?
-              </h3>
-              <p className="text-gray-300 mb-8 max-w-md mx-auto">
-                Streamline your inventory management with our bulk import tool. 
-                Add multiple products at once and save time.
-              </p>
-              <Button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 shadow-lg hover:shadow-xl px-8 py-2.5 text-black font-medium transition-all">
-                Try Bulk Import Tool
-                <ArrowUpRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* View Product Dialog */}
-      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="sm:max-w-[600px] bg-zinc-900 border-yellow-500/20 shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-yellow-500">Product Details</DialogTitle>
-            <DialogDescription className="text-gray-300">View the details of the product.</DialogDescription>
-          </DialogHeader>
-          {selectedProduct && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-gray-300">
-                  Name
-                </Label>
-                <div className="col-span-3">
-                  <p className="text-white font-medium">{selectedProduct.name}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-gray-300">
-                  Description
-                </Label>
-                <div className="col-span-3">
-                  <p className="text-gray-300">{selectedProduct.description || 'No description available'}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-gray-300">
-                  Category
-                </Label>
-                <div className="col-span-3">
-                  <Badge className="bg-zinc-800 text-gray-300 font-normal">
-                    {selectedProduct.category?.name || 'Unknown Category'}
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-gray-300">
-                  Brand
-                </Label>
-                <div className="col-span-3">
-                  <Badge className="bg-zinc-800 text-gray-300 font-normal">
-                    {selectedProduct.brand?.name || 'Unknown Brand'}
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-gray-300">
-                  SKU
-                </Label>
-                <div className="col-span-3">
-                  <p className="text-white font-medium">{selectedProduct.variants?.[0]?.sku || 'N/A'}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-gray-300">
-                  Price
-                </Label>
-                <div className="col-span-3">
-                  <p className="text-white font-medium">${selectedProduct.variants?.[0]?.price || 0}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-gray-300">
-                  Stock
-                </Label>
-                <div className="col-span-3">
-                  <p className="text-white font-medium">{selectedProduct.totalStock || 0}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-gray-300">
-                  Status
-                </Label>
-                <div className="col-span-3">
-                  <Badge 
-                    className={`
-                      ${(selectedProduct.status || 'In Stock') === 'In Stock' ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' : 
-                        (selectedProduct.status || 'In Stock') === 'Featured' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' : 
-                        (selectedProduct.status || 'In Stock') === 'Low Stock' ? 'bg-amber-500/20 text-amber-500 border-amber-500/30' : 
-                        'bg-gray-500/20 text-gray-500 border-gray-500/30'}
-                    `}
-                  >
-                    {selectedProduct.status || 'In Stock'}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* View Product Dialog */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
@@ -837,11 +593,11 @@ export default function AdminProductsPage() {
                 </div>
                 <div>
                   <Label className="text-yellow-500 font-medium">Category</Label>
-                  <p className="text-white mt-1">{selectedProduct.category?.name || 'N/A'}</p>
+                  <p className="text-white mt-1 font-semibold">{(selectedProduct.category?.name || 'N/A').toUpperCase()}</p>
                 </div>
                 <div>
                   <Label className="text-yellow-500 font-medium">Brand</Label>
-                  <p className="text-white mt-1">{selectedProduct.brand?.name || 'N/A'}</p>
+                  <p className="text-white mt-1 font-semibold">{(selectedProduct.brand?.name || 'N/A').toUpperCase()}</p>
                 </div>
                 <div>
                   <Label className="text-yellow-500 font-medium">Price</Label>
@@ -853,10 +609,12 @@ export default function AdminProductsPage() {
                 </div>
                 <div>
                   <Label className="text-yellow-500 font-medium">Status</Label>
-                  <Badge className={`mt-1 ${selectedProduct.status === 'Featured' ? 'bg-green-500/20 text-green-400' : 
-                    selectedProduct.status === 'Low Stock' ? 'bg-red-500/20 text-red-400' : 
-                    'bg-blue-500/20 text-blue-400'}`}>
-                    {selectedProduct.status || 'In Stock'}
+                  <Badge className={`mt-1 font-medium ${
+                    getProductStatus(selectedProduct) === 'Featured' ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-emerald-400 border-emerald-500/20' : 
+                    getProductStatus(selectedProduct) === 'Low Stock' ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-rose-400 border-rose-500/20' : 
+                    'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-cyan-400 border-cyan-500/20'
+                  }`}>
+                    {getProductStatus(selectedProduct)}
                   </Badge>
                 </div>
               </div>
@@ -914,19 +672,55 @@ function CreateProductDialog({ onClose, categories, brands, onProductCreated }) 
     sku: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // Fallback categories and brands if database ones aren't loaded
+  const fallbackCategories = [
+    { id: "cpu", name: "CPU" },
+    { id: "gpu", name: "GPU" },
+    { id: "memory", name: "Memory" },
+    { id: "storage", name: "Storage" },
+    { id: "motherboard", name: "Motherboard" },
+    { id: "power-supply", name: "Power Supply" },
+    { id: "cooling", name: "Cooling" },
+    { id: "case", name: "Case" }
+  ];
+
+  const fallbackBrands = [
+    { id: "intel", name: "Intel" },
+    { id: "amd", name: "AMD" },
+    { id: "nvidia", name: "NVIDIA" },
+    { id: "corsair", name: "Corsair" },
+    { id: "samsung", name: "Samsung" },
+    { id: "asus", name: "ASUS" },
+    { id: "msi", name: "MSI" },
+    { id: "gigabyte", name: "Gigabyte" }
+  ];
+
+  const availableCategories = categories.length > 0 ? categories : fallbackCategories;
+  const availableBrands = brands.length > 0 ? brands : fallbackBrands;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setError("");
+    
+    if (!formData.name || !formData.description || !formData.categoryId || !formData.brandId) {
+      setError('Please fill in all required fields');
+      return;
+    }
 
-    // Validate required fields on frontend
-    if (!formData.name || !formData.description || !formData.categoryId || !formData.brandId || !formData.price || !formData.stock) {
-      alert('Please fill in all required fields');
-      setIsSubmitting(false);
+    if (formData.price && isNaN(parseFloat(formData.price))) {
+      setError('Price must be a valid number');
+      return;
+    }
+
+    if (formData.stock && isNaN(parseInt(formData.stock))) {
+      setError('Stock must be a valid number');
       return;
     }
 
     try {
+      setIsSubmitting(true);
       const productData = {
         name: formData.name,
         description: formData.description,
@@ -934,12 +728,12 @@ function CreateProductDialog({ onClose, categories, brands, onProductCreated }) 
         brandId: formData.brandId,
         variants: [{
           sku: formData.sku || `${formData.name.replace(/\s+/g, '-').toUpperCase()}-001`,
-          price: parseFloat(formData.price),
-          stock: parseInt(formData.stock)
+          price: parseFloat(formData.price) || 0,
+          stock: parseInt(formData.stock) || 0
         }]
       };
 
-      console.log('Sending product data:', productData);
+      console.log('Submitting product data:', productData);
 
       const response = await fetch('/api/products', {
         method: 'POST',
@@ -949,13 +743,11 @@ function CreateProductDialog({ onClose, categories, brands, onProductCreated }) 
         body: JSON.stringify(productData),
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
+      const responseData = await response.json();
+      console.log('Response:', responseData);
 
-      if (response.ok) {
-        const newProduct = await response.json();
-        onProductCreated(newProduct);
-        onClose();
+      if (response.ok && responseData.success) {
+        onProductCreated(responseData.data);
         setFormData({
           name: "",
           description: "",
@@ -965,259 +757,195 @@ function CreateProductDialog({ onClose, categories, brands, onProductCreated }) 
           stock: "",
           sku: ""
         });
+        onClose();
+        alert('Product created successfully!');
       } else {
-        console.error('Error creating product - Response not OK');
-        console.error('Status:', response.status);
-        console.error('Status Text:', response.statusText);
-        
-        let errorMessage = 'Unknown error';
-        let responseText = '';
-        
-        try {
-          responseText = await response.text();
-          console.error('Response body:', responseText);
-          
-          const error = JSON.parse(responseText);
-          errorMessage = error.details || error.error || error.message || 'Unknown error';
-        } catch (parseError) {
-          console.error('Failed to parse response:', parseError);
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        }
-        
-        alert('Failed to create product: ' + errorMessage);
+        const errorMsg = responseData.error || 'Unknown error occurred';
+        setError('Failed to create product: ' + errorMsg);
+        console.error('Product creation failed:', responseData);
       }
     } catch (error) {
-      console.error('Error creating product (catch block):', error.message);
-      console.error('Error stack:', error.stack);
-      alert('Failed to create product: ' + error.message);
+      console.error('Error creating product:', error);
+      setError('Failed to create product: ' + error.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="grid gap-4 py-4">
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="name" className="text-right text-gray-300">
-            Name
-          </Label>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-md p-3 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="name" className="text-yellow-500">Product Name*</Label>
           <Input
             id="name"
             value={formData.name}
-            onChange={(e) => setFormData({...formData, name: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="bg-zinc-800 border-zinc-700 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
+            placeholder="Enter product name"
             required
           />
         </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="description" className="text-right text-gray-300">
-            Description
-          </Label>
+        <div className="space-y-2">
+          <Label htmlFor="price" className="text-yellow-500">Price ($)</Label>
           <Input
-            id="description"
-            value={formData.description}
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
+            id="price"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.price}
+            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+            className="bg-zinc-800 border-zinc-700 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
+            placeholder="0.00"
           />
         </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="categoryId" className="text-right text-gray-300">
-            Category
-          </Label>
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="description" className="text-yellow-500">Description*</Label>
+        <Input
+          id="description"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          className="bg-zinc-800 border-zinc-700 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
+          placeholder="Enter product description"
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="categoryId" className="text-yellow-500">Category*</Label>
           <select
             id="categoryId"
             value={formData.categoryId}
-            onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
-            className="col-span-3 bg-zinc-800 border border-zinc-700 text-white rounded-md px-3 py-2"
+            onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+            className="w-full p-2 bg-zinc-800 border border-zinc-700 text-white rounded-md focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
             required
           >
             <option value="">Select Category</option>
-            {categories.map((category) => (
+            {availableCategories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
               </option>
             ))}
           </select>
         </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="brandId" className="text-right text-gray-300">
-            Brand
-          </Label>
+        <div className="space-y-2">
+          <Label htmlFor="brandId" className="text-yellow-500">Brand*</Label>
           <select
             id="brandId"
             value={formData.brandId}
-            onChange={(e) => setFormData({...formData, brandId: e.target.value})}
-            className="col-span-3 bg-zinc-800 border border-zinc-700 text-white rounded-md px-3 py-2"
+            onChange={(e) => setFormData({ ...formData, brandId: e.target.value })}
+            className="w-full p-2 bg-zinc-800 border border-zinc-700 text-white rounded-md focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
             required
           >
             <option value="">Select Brand</option>
-            {brands.map((brand) => (
+            {availableBrands.map((brand) => (
               <option key={brand.id} value={brand.id}>
                 {brand.name}
               </option>
             ))}
           </select>
         </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="sku" className="text-right text-gray-300">
-            SKU
-          </Label>
-          <Input
-            id="sku"
-            value={formData.sku}
-            onChange={(e) => setFormData({...formData, sku: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
-            placeholder="Auto-generated if empty"
-          />
-        </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="price" className="text-right text-gray-300">
-            Price
-          </Label>
-          <Input
-            id="price"
-            type="number"
-            step="0.01"
-            value={formData.price}
-            onChange={(e) => setFormData({...formData, price: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
-            required
-          />
-        </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="stock" className="text-right text-gray-300">
-            Stock
-          </Label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="stock" className="text-yellow-500">Initial Stock</Label>
           <Input
             id="stock"
             type="number"
+            min="0"
             value={formData.stock}
-            onChange={(e) => setFormData({...formData, stock: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
-            required
+            onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+            className="bg-zinc-800 border-zinc-700 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
+            placeholder="0"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="sku" className="text-yellow-500">SKU</Label>
+          <Input
+            id="sku"
+            value={formData.sku}
+            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+            placeholder="Auto-generated if empty"
+            className="bg-zinc-800 border-zinc-700 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
           />
         </div>
       </div>
-      
-      <div className="flex justify-end space-x-2">
+
+      <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onClose} className="border-zinc-700 text-gray-300 hover:bg-zinc-800">
           Cancel
         </Button>
-        <Button type="submit" className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-black hover:from-yellow-600 hover:to-yellow-700" disabled={isSubmitting}>
-          {isSubmitting ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2"></div>
-              Creating...
-            </>
-          ) : (
-            'Create Product'
-          )}
+        <Button 
+          type="submit" 
+          disabled={isSubmitting}
+          className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-medium"
+        >
+          {isSubmitting ? 'Creating...' : 'Create Product'}
         </Button>
       </div>
     </form>
   );
 }
 
-// Edit Product Dialog Component
+// Edit Product Dialog Component  
 function EditProductDialog({ product, onClose, categories, brands, onProductUpdated }) {
   const [formData, setFormData] = useState({
-    id: product.id,
-    name: product.name,
-    description: product.description,
-    categoryId: product.categoryId,
-    brandId: product.brandId,
-    price: product.variants?.[0]?.price || '',
-    stock: product.totalStock || '',
-    sku: product.variants?.[0]?.sku || ''
+    name: product.name || "",
+    description: product.description || "",
+    categoryId: product.category?.id || "",
+    brandId: product.brand?.id || "",
+    price: product.variants?.[0]?.price?.toString() || "",
+    stock: product.totalStock?.toString() || "",
+    sku: product.variants?.[0]?.sku || ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    setFormData({
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      categoryId: product.categoryId,
-      brandId: product.brandId,
-      price: product.variants?.[0]?.price || '',
-      stock: product.totalStock || '',
-      sku: product.variants?.[0]?.sku || ''
-    });
-  }, [product]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    // Validate required fields on frontend
-    if (!formData.name || !formData.description || !formData.categoryId || !formData.brandId || !formData.price || !formData.stock) {
-      alert('Please fill in all required fields');
-      setIsSubmitting(false);
-      return;
-    }
-
+    
     try {
-      const productData = {
-        id: formData.id,
+      setIsSubmitting(true);
+      
+      // Update product via API
+      const updateData = {
         name: formData.name,
         description: formData.description,
         categoryId: formData.categoryId,
         brandId: formData.brandId,
-        variants: [{
-          sku: formData.sku,
-          price: parseFloat(formData.price),
-          stock: parseInt(formData.stock)
-        }]
+        price: parseFloat(formData.price) || 0,
+        stock: parseInt(formData.stock) || 0,
+        sku: formData.sku
       };
-
-      console.log('Updating product data:', productData);
-
-      const response = await fetch(`/api/products/${formData.id}`, {
+      
+      const response = await fetch(`/api/products/${product.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(productData),
+        body: JSON.stringify(updateData)
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
       if (response.ok) {
-        const updatedProduct = await response.json();
+        const result = await response.json();
+        const updatedProduct = result.success ? result.data : result;
         onProductUpdated(updatedProduct);
-        onClose();
+        alert('Product updated successfully!');
       } else {
-        console.error('Error updating product - Response not OK');
-        console.error('Status:', response.status);
-        console.error('Status Text:', response.statusText);
-        
-        let errorMessage = 'Unknown error';
-        let responseText = '';
-        
-        try {
-          responseText = await response.text();
-          console.error('Response body:', responseText);
-          
-          const error = JSON.parse(responseText);
-          errorMessage = error.details || error.error || error.message || 'Unknown error';
-        } catch (parseError) {
-          console.error('Failed to parse response:', parseError);
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        }
-        
-        alert('Failed to update product: ' + errorMessage);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        alert('Failed to update product: ' + (errorData.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error updating product (catch block):', error.message);
-      console.error('Error stack:', error.stack);
+      console.error('Error updating product:', error);
       alert('Failed to update product: ' + error.message);
     } finally {
       setIsSubmitting(false);
@@ -1225,129 +953,113 @@ function EditProductDialog({ product, onClose, categories, brands, onProductUpda
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="grid gap-4 py-4">
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="name" className="text-right text-gray-300">
-            Name
-          </Label>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="edit-name" className="text-yellow-500">Product Name*</Label>
           <Input
-            id="name"
+            id="edit-name"
             value={formData.name}
-            onChange={(e) => setFormData({...formData, name: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="bg-zinc-800 border-zinc-700 text-white"
             required
           />
         </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="description" className="text-right text-gray-300">
-            Description
-          </Label>
+        <div className="space-y-2">
+          <Label htmlFor="edit-price" className="text-yellow-500">Price</Label>
           <Input
-            id="description"
-            value={formData.description}
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
-          />
-        </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="categoryId" className="text-right text-gray-300">
-            Category
-          </Label>
-          <select
-            id="categoryId"
-            value={formData.categoryId}
-            onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
-            className="col-span-3 bg-zinc-800 border border-zinc-700 text-white rounded-md px-3 py-2"
-            required
-          >
-            <option value="">Select Category</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="brandId" className="text-right text-gray-300">
-            Brand
-          </Label>
-          <select
-            id="brandId"
-            value={formData.brandId}
-            onChange={(e) => setFormData({...formData, brandId: e.target.value})}
-            className="col-span-3 bg-zinc-800 border border-zinc-700 text-white rounded-md px-3 py-2"
-            required
-          >
-            <option value="">Select Brand</option>
-            {brands.map((brand) => (
-              <option key={brand.id} value={brand.id}>
-                {brand.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="sku" className="text-right text-gray-300">
-            SKU
-          </Label>
-          <Input
-            id="sku"
-            value={formData.sku}
-            onChange={(e) => setFormData({...formData, sku: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
-            placeholder="Auto-generated if empty"
-          />
-        </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="price" className="text-right text-gray-300">
-            Price
-          </Label>
-          <Input
-            id="price"
+            id="edit-price"
             type="number"
             step="0.01"
             value={formData.price}
-            onChange={(e) => setFormData({...formData, price: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
-            required
-          />
-        </div>
-        
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="stock" className="text-right text-gray-300">
-            Stock
-          </Label>
-          <Input
-            id="stock"
-            type="number"
-            value={formData.stock}
-            onChange={(e) => setFormData({...formData, stock: e.target.value})}
-            className="col-span-3 bg-zinc-800 border-zinc-700 text-white"
-            required
+            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+            className="bg-zinc-800 border-zinc-700 text-white"
           />
         </div>
       </div>
       
-      <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onClose} className="border-zinc-700 text-gray-300 hover:bg-zinc-800">
+      <div className="space-y-2">
+        <Label htmlFor="edit-description" className="text-yellow-500">Description*</Label>
+        <Input
+          id="edit-description"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          className="bg-zinc-800 border-zinc-700 text-white"
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="edit-categoryId" className="text-yellow-500">Category*</Label>
+          <select
+            id="edit-categoryId"
+            value={formData.categoryId}
+            onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+            className="w-full p-2 bg-zinc-800 border border-zinc-700 text-white rounded-md"
+            required
+          >
+            <option value="">Select Category</option>
+            <option value="cpu">CPU</option>
+            <option value="gpu">GPU</option>
+            <option value="ram">RAM</option>
+            <option value="storage">Storage</option>
+            <option value="motherboard">Motherboard</option>
+            <option value="psu">PSU</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="edit-brandId" className="text-yellow-500">Brand*</Label>
+          <select
+            id="edit-brandId"
+            value={formData.brandId}
+            onChange={(e) => setFormData({ ...formData, brandId: e.target.value })}
+            className="w-full p-2 bg-zinc-800 border border-zinc-700 text-white rounded-md"
+            required
+          >
+            <option value="">Select Brand</option>
+            <option value="intel">Intel</option>
+            <option value="amd">AMD</option>
+            <option value="nvidia">NVIDIA</option>
+            <option value="corsair">Corsair</option>
+            <option value="samsung">Samsung</option>
+            <option value="asus">ASUS</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="edit-stock" className="text-yellow-500">Stock</Label>
+          <Input
+            id="edit-stock"
+            type="number"
+            value={formData.stock}
+            onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+            className="bg-zinc-800 border-zinc-700 text-white"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="edit-sku" className="text-yellow-500">SKU</Label>
+          <Input
+            id="edit-sku"
+            value={formData.sku}
+            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+            className="bg-zinc-800 border-zinc-700 text-white"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onClose} className="border-zinc-700">
           Cancel
         </Button>
-        <Button type="submit" className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-black hover:from-yellow-600 hover:to-yellow-700" disabled={isSubmitting}>
-          {isSubmitting ? (
-            <></>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2"></div>
-              Updating...
-            </>
-          ) : (
-            'Update Product'
-          )}
+        <Button 
+          type="submit" 
+          disabled={isSubmitting}
+          className="bg-yellow-500 hover:bg-yellow-600 text-black"
+        >
+          {isSubmitting ? 'Updating...' : 'Update Product'}
         </Button>
       </div>
     </form>

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "cpu",
+    "name": "CPU",
+    "slug": "cpu"
+  },
+  {
+    "id": "gpu",
+    "name": "GPU",
+    "slug": "gpu"
+  },
+  {
+    "id": "memory",
+    "name": "Memory",
+    "slug": "memory"
+  },
+  {
+    "id": "storage",
+    "name": "Storage",
+    "slug": "storage"
+  },
+  {
+    "id": "motherboard",
+    "name": "Motherboard",
+    "slug": "motherboard"
+  },
+  {
+    "id": "power-supply",
+    "name": "Power Supply",
+    "slug": "power-supply"
+  },
+  {
+    "id": "cooling",
+    "name": "Cooling",
+    "slug": "cooling"
+  },
+  {
+    "id": "case",
+    "name": "Case",
+    "slug": "case"
+  }
+]

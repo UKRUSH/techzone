@@ -90,6 +90,9 @@ export async function PUT(request, { params }) {
       description, 
       categoryId, 
       brandId, 
+      price,
+      stock,
+      sku,
       specifications,
       features,
       tags,
@@ -101,7 +104,11 @@ export async function PUT(request, { params }) {
     const existingProduct = await prisma.product.findUnique({
       where: { id },
       include: {
-        variants: true,
+        variants: {
+          include: {
+            inventory: true
+          }
+        },
         images: true
       }
     });
@@ -114,24 +121,51 @@ export async function PUT(request, { params }) {
     }
 
     // Update product
+    const updateData = {
+      name,
+      description,
+      categoryId,
+      brandId,
+      specifications: specifications || {},
+      features: features || [],
+      tags: tags || [],
+      updatedAt: new Date()
+    };
+
+    // If price is provided, update the first variant
+    if (price !== undefined && existingProduct.variants.length > 0) {
+      await prisma.productVariant.update({
+        where: { id: existingProduct.variants[0].id },
+        data: {
+          price: parseFloat(price),
+          ...(sku && { sku })
+        }
+      });
+    }
+
+    // If stock is provided, update the first inventory location
+    if (stock !== undefined && existingProduct.variants.length > 0 && existingProduct.variants[0].inventory.length > 0) {
+      await prisma.inventoryLevel.update({
+        where: { id: existingProduct.variants[0].inventory[0].id },
+        data: {
+          stock: parseInt(stock)
+        }
+      });
+    }
+
     const product = await prisma.product.update({
       where: { id },
-      data: {
-        name,
-        description,
-        categoryId,
-        brandId,
-        specifications: specifications || {},
-        features: features || [],
-        tags: tags || [],
-        updatedAt: new Date()
-      },
+      data: updateData,
       include: {
         category: true,
         brand: true,
         variants: {
           include: {
-            inventory: true
+            inventory: {
+              include: {
+                location: true
+              }
+            }
           }
         },
         images: {
@@ -140,7 +174,22 @@ export async function PUT(request, { params }) {
       }
     });
 
-    return NextResponse.json(product);
+    // Calculate total stock
+    const totalStock = product.variants.reduce((sum, variant) => {
+      return sum + variant.inventory.reduce((variantSum, level) => {
+        return variantSum + level.stock - level.reserved;
+      }, 0);
+    }, 0);
+
+    const productWithStats = {
+      ...product,
+      totalStock
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: productWithStats
+    });
   } catch (error) {
     console.error('Error updating product:', error);
     return NextResponse.json(

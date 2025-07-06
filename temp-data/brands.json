@@ -1,0 +1,42 @@
+[
+  {
+    "id": "intel",
+    "name": "Intel",
+    "slug": "intel"
+  },
+  {
+    "id": "amd",
+    "name": "AMD",
+    "slug": "amd"
+  },
+  {
+    "id": "nvidia",
+    "name": "NVIDIA",
+    "slug": "nvidia"
+  },
+  {
+    "id": "corsair",
+    "name": "Corsair",
+    "slug": "corsair"
+  },
+  {
+    "id": "asus",
+    "name": "ASUS",
+    "slug": "asus"
+  },
+  {
+    "id": "msi",
+    "name": "MSI",
+    "slug": "msi"
+  },
+  {
+    "id": "gigabyte",
+    "name": "Gigabyte",
+    "slug": "gigabyte"
+  },
+  {
+    "id": "evga",
+    "name": "EVGA",
+    "slug": "evga"
+  }
+]

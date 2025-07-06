@@ -56,13 +56,11 @@ export default function ProductDetailPage() {
         router.push('/products');
       } else {
         console.error('Error fetching product');
-        // Set mock data as fallback for demo
-        setProduct(mockProduct);
+        router.push('/products');
       }
     } catch (error) {
       console.error('Error fetching product:', error);
-      // Set mock data as fallback for demo
-      setProduct(mockProduct);
+      router.push('/products');
     } finally {
       setLoading(false);
     }

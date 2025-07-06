@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, memo, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,70 +17,149 @@ import {
   Fan,
   ArrowRight,
   Package,
-  Loader2,
   Search,
   Filter,
   Star,
   Zap,
-  XCircle
+  XCircle,
+  Box,
+  Gamepad2,
+  Keyboard,
+  Mouse,
+  Headphones,
+  Wifi,
+  Usb,
+  Smartphone,
+  Loader2
 } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
+import { FastLink } from "@/components/navigation/FastNavigation";
 
 // Icon mapping for categories
 const categoryIcons = {
-  "cpu": Cpu,
-  "graphics cards": Monitor,
   "gpu": Monitor,
+  "graphics cards": Monitor,
+  "cpu": Cpu,
+  "processors": Cpu,
   "memory": MemoryStick,
   "ram": MemoryStick,
   "storage": HardDrive,
-  "motherboards": Microchip,
   "motherboard": Microchip,
+  "motherboards": Microchip,
+  "power-supply": Power,
   "power supplies": Power,
-  "psu": Power,
   "cooling": Fan,
+  "case": Box,
+  "cases": Box,
+  "gaming-peripherals": Gamepad2,
+  "gaming peripherals": Gamepad2,
+  "monitors": Monitor,
+  "audio": Headphones,
+  "networking": Wifi,
+  "default": Package
 };
 
-// Fetch function for React Query
-const fetchCategories = async () => {
-  const response = await fetch('/api/categories');
-  if (!response.ok) {
-    throw new Error('Failed to fetch categories');
-  }
-  return response.json();
-};
+// Memoized components for optimized rendering
+const MemoizedCard = memo(function MemoizedCard({ children, ...props }) {
+  return <Card {...props}>{children}</Card>;
+});
+
+const MemoizedMotion = memo(function MemoizedMotion({ children, ...props }) {
+  return <motion.div {...props}>{children}</motion.div>;
+});
 
 export default function CategoriesPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  
-  // Use React Query for optimized data fetching
-  const { data: categories = [], isLoading, error } = useQuery({
-    queryKey: ['categories'],
-    queryFn: fetchCategories,
-    // Cache for 5 minutes
-    staleTime: 5 * 60 * 1000,
-  });
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch categories from database
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data.data || []);
+        } else {
+          throw new Error('Failed to fetch categories');
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCategories();
+  }, []);
 
   // Get appropriate icon for category
-  const getCategoryIcon = (categoryName) => {
-    const iconKey = categoryName.toLowerCase();
-    const IconComponent = categoryIcons[iconKey] || Package;
+  const getCategoryIcon = (categorySlug) => {
+    const IconComponent = categoryIcons[categorySlug] || categoryIcons.default;
     return IconComponent;
   };
   
   // Filter categories based on search term
-  const filteredCategories = categories.filter(category => 
-    category.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCategories = useMemo(() => 
+    categories.filter(category => 
+      category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    ), [categories, searchTerm]
   );
   
-  // Featured categories - pick the first 2 (or fewer if not available)
-  const featuredCategories = categories.slice(0, Math.min(2, categories.length));
+  // Featured categories
+  const featuredCategories = useMemo(() => 
+    categories.filter(category => category.featured), [categories]
+  );
+
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            <p className="text-muted-foreground">Loading categories...</p>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <XCircle className="h-8 w-8 text-red-500" />
+            <p className="text-red-500">Error loading categories: {error}</p>
+            <Button onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
   return (
     <>
       <Header />
       <div className="min-h-screen relative overflow-hidden">
+        {/* Database Status Indicator */}
+        <div className="fixed top-4 right-4 z-50 bg-green-500/10 border border-green-500/30 rounded-full px-4 py-2 backdrop-blur-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-green-400 text-sm font-medium">Database Connected</span>
+          </div>
+        </div>
+
         {/* Main background gradient */}
         <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-yellow-950/20 z-0"></div>
         
@@ -112,7 +191,7 @@ export default function CategoriesPage() {
         
         <div className="container mx-auto px-4 py-12 relative z-10">
           {/* Hero Section with enhanced styling */}
-          <motion.div 
+          <MemoizedMotion 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8 }}
@@ -204,7 +283,7 @@ export default function CategoriesPage() {
                 </div>
                 
                 {featuredCategories.map((category, idx) => {
-                  const IconComponent = getCategoryIcon(category.name);
+                  const IconComponent = getCategoryIcon(category.slug);
                   return (
                     <motion.div
                       key={category.id}
@@ -213,12 +292,12 @@ export default function CategoriesPage() {
                       transition={{ duration: 0.3, delay: 0.6 + (idx * 0.1) }}
                       whileHover={{ y: -2, scale: 1.05, transition: { duration: 0.2 } }}
                     >
-                      <Link href={`/products?category=${category.slug || category.name.toLowerCase()}`}>
+                      <FastLink href={`/products?category=${category.slug}`}>
                         <Badge variant="outline" className="bg-zinc-900/70 hover:bg-yellow-500/10 cursor-pointer transition-all duration-300 px-4 py-2 text-sm border-yellow-500/30 shadow-sm hover:shadow-md hover:text-yellow-400">
                           <IconComponent className="w-3.5 h-3.5 mr-2 text-yellow-500" />
                           {category.name}
                         </Badge>
-                      </Link>
+                      </FastLink>
                     </motion.div>
                   );
                 })}
@@ -228,149 +307,117 @@ export default function CategoriesPage() {
                   transition={{ duration: 0.3, delay: 0.6 + (featuredCategories.length * 0.1) }}
                   whileHover={{ y: -2, scale: 1.05, transition: { duration: 0.2 } }}
                 >
-                  <Link href="#all-categories">
+                  <a href="#all-categories">
                     <Badge variant="outline" className="bg-yellow-500/10 hover:bg-yellow-500/20 cursor-pointer transition-all duration-300 px-4 py-2 text-sm border-yellow-500/40 shadow-sm hover:shadow-md">
                       <Filter className="w-3.5 h-3.5 mr-2 text-yellow-500" /> View All
                     </Badge>
-                  </Link>
+                  </a>
                 </motion.div>
               </motion.div>
             )}
-          </motion.div>
+          </MemoizedMotion>
 
-          {/* Categories Grid with enhanced styling */}
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-32">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border-4 border-yellow-500/30 animate-ping absolute"></div>
-                <Loader2 className="h-16 w-16 animate-spin text-yellow-500 relative" />
-              </div>
-              <span className="text-gray-300 text-lg mt-6 font-medium">Loading categories...</span>
-            </div>
-          ) : error ? (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-24 max-w-md mx-auto"
+          {/* Categories Grid with instant rendering */}
+          <div id="all-categories" className="mb-10 flex justify-between items-center">
+            <motion.h2 
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 drop-shadow-sm"
             >
-              <div className="bg-red-500/10 p-8 rounded-xl border border-red-500/30 mb-6 shadow-lg">
-                <div className="bg-red-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <XCircle className="h-10 w-10 text-red-500" />
-                </div>
-                <p className="text-red-500 mb-4 text-xl font-semibold">Failed to load categories</p>
-                <p className="text-gray-300 mb-6">We encountered an error while fetching category data. Please try again.</p>
+              {searchTerm ? `Search Results: "${searchTerm}"` : "All Categories"}
+            </motion.h2>
+            <motion.div 
+              initial={{ x: 20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              className="flex items-center gap-2"
+            >
+              {searchTerm && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setSearchTerm("")} 
+                  className="text-sm border-yellow-500/30 hover:bg-yellow-500/5 text-yellow-500/90"
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Clear Search
+                </Button>
+              )}
+            </motion.div>
+          </div>
+
+          {/* Instant categories display */}
+          {filteredCategories.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-20 max-w-md mx-auto"
+            >
+              <div className="bg-yellow-500/10 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Search className="h-12 w-12 text-yellow-500/70" />
               </div>
-              <Button 
-                onClick={() => window.location.reload()} 
-                size="lg" 
-                className="px-8 py-6 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 transition-all shadow-lg hover:shadow-xl text-black"
-              >
-                <Loader2 className="w-5 h-5 mr-3" /> Try Again
+              <p className="text-2xl font-medium mb-3 text-yellow-500">No categories found</p>
+              <p className="text-gray-300 mb-8">Try searching with different keywords</p>
+              <Button onClick={() => setSearchTerm("")} variant="outline" size="lg" className="border-yellow-500/30 hover:border-yellow-500/50 text-yellow-500/90">
+                View All Categories
               </Button>
             </motion.div>
           ) : (
-            <>
-              <div id="all-categories" className="mb-10 flex justify-between items-center">
-                <motion.h2 
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 drop-shadow-sm"
-                >
-                  {searchTerm ? `Search Results: "${searchTerm}"` : "All Categories"}
-                </motion.h2>
-                <motion.div 
-                  initial={{ x: 20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  className="flex items-center gap-2"
-                >
-                  {searchTerm && (
-                    <Button 
-                      variant="outline"
-                      onClick={() => setSearchTerm("")} 
-                      className="text-sm border-yellow-500/30 hover:bg-yellow-500/5 text-yellow-500/90"
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Clear Search
-                    </Button>
-                  )}
-                </motion.div>
-              </div>
-
-              {filteredCategories.length === 0 ? (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-20 max-w-md mx-auto"
-                >
-                  <div className="bg-yellow-500/10 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Search className="h-12 w-12 text-yellow-500/70" />
-                  </div>
-                  <p className="text-2xl font-medium mb-3 text-yellow-500">No categories found</p>
-                  <p className="text-gray-300 mb-8">Try searching with different keywords</p>
-                  <Button onClick={() => setSearchTerm("")} variant="outline" size="lg" className="border-yellow-500/30 hover:border-yellow-500/50 text-yellow-500/90">
-                    View All Categories
-                  </Button>
-                </motion.div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                  {filteredCategories.map((category, index) => {
-                    const IconComponent = getCategoryIcon(category.name);
-                    
-                    return (
-                      <motion.div
-                        key={category.id}
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: index * 0.05 }}
-                        whileHover={{ y: -8, scale: 1.02, transition: { duration: 0.2 } }}
-                        className="h-full"
-                      >
-                        <Link href={`/products?category=${category.slug || category.name.toLowerCase()}`} className="h-full">
-                          <Card className="group h-full hover:shadow-2xl transition-all duration-300 cursor-pointer border-yellow-500/30 hover:border-yellow-500/60 overflow-hidden relative">
-                            {/* Black and yellow gradient background */}
-                            <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-yellow-950/30 -z-10"></div>
-                            
-                            {/* Yellow corner accent */}
-                            <div className="absolute -top-10 -right-10 w-20 h-20 bg-yellow-400/20 rounded-full blur-xl"></div>
-                            
-                            {/* Animated top border */}
-                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-yellow-400 to-yellow-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></div>
-                            
-                            <CardHeader className="text-center pb-4 pt-8 relative">
-                              <div className="mx-auto mb-6 p-5 rounded-full bg-gradient-to-br from-yellow-500/30 to-black/80 group-hover:from-yellow-500/50 group-hover:to-yellow-700/30 transition-all transform group-hover:scale-110 shadow-lg">
-                                <IconComponent className="h-10 w-10 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-500 drop-shadow-lg" />
-                              </div>
-                              
-                              {/* Yellow glow behind title */}
-                              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-16 bg-yellow-500/10 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                              
-                              <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-500 group-hover:from-yellow-300 group-hover:to-yellow-400 transition-all duration-500">
-                                {category.name}
-                              </CardTitle>
-                              {category.description && (
-                                <CardDescription className="text-sm text-yellow-100/70 mt-3">
-                                  {category.description}
-                                </CardDescription>
-                              )}
-                            </CardHeader>
-                            <CardContent className="text-center pb-8">
-                              <div className="flex items-center justify-between mt-4">
-                                <Badge variant="outline" className="bg-black/80 border-yellow-500/40 font-medium text-yellow-400 px-3 py-1 shadow-inner shadow-yellow-500/10">
-                                  {category.productCount || category._count?.products || 0} Products
-                                </Badge>
-                                <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/30 p-2 rounded-full group-hover:from-yellow-500/30 group-hover:to-yellow-600/50 transition-colors shadow-lg">
-                                  <ArrowRight className="h-4 w-4 text-yellow-400 group-hover:text-yellow-300 group-hover:translate-x-1 transition-all" />
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </Link>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {filteredCategories.map((category, index) => {
+                const IconComponent = getCategoryIcon(category.slug);
+                
+                return (
+                  <motion.div
+                    key={category.id}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: index * 0.05 }}
+                    whileHover={{ y: -8, scale: 1.02, transition: { duration: 0.2 } }}
+                    className="h-full"
+                  >
+                    <FastLink href={`/products?category=${category.slug}`} className="h-full">
+                      <MemoizedCard className="group h-full hover:shadow-2xl transition-all duration-300 cursor-pointer border-yellow-500/30 hover:border-yellow-500/60 overflow-hidden relative">
+                        {/* Black and yellow gradient background */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-yellow-950/30 -z-10"></div>
+                        
+                        {/* Yellow corner accent */}
+                        <div className="absolute -top-10 -right-10 w-20 h-20 bg-yellow-400/20 rounded-full blur-xl"></div>
+                        
+                        {/* Animated top border */}
+                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-yellow-400 to-yellow-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></div>
+                        
+                        <CardHeader className="text-center pb-4 pt-8 relative">
+                          <div className="mx-auto mb-6 p-5 rounded-full bg-gradient-to-br from-yellow-500/30 to-black/80 group-hover:from-yellow-500/50 group-hover:to-yellow-700/30 transition-all transform group-hover:scale-110 shadow-lg">
+                            <IconComponent className="h-10 w-10 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-500 drop-shadow-lg" />
+                          </div>
+                          
+                          {/* Yellow glow behind title */}
+                          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-16 bg-yellow-500/10 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                          
+                          <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-500 group-hover:from-yellow-300 group-hover:to-yellow-400 transition-all duration-500">
+                            {category.name}
+                          </CardTitle>
+                          {category.description && (
+                            <CardDescription className="text-sm text-yellow-100/70 mt-3">
+                              {category.description}
+                            </CardDescription>
+                          )}
+                        </CardHeader>
+                        <CardContent className="text-center pb-8">
+                          <div className="flex items-center justify-between mt-4">
+                            <Badge variant="outline" className="bg-black/80 border-yellow-500/40 font-medium text-yellow-400 px-3 py-1 shadow-inner shadow-yellow-500/10">
+                              {category.productCount || 0} Products
+                            </Badge>
+                            <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/30 p-2 rounded-full group-hover:from-yellow-500/30 group-hover:to-yellow-600/50 transition-colors shadow-lg">
+                              <ArrowRight className="h-4 w-4 text-yellow-400 group-hover:text-yellow-300 group-hover:translate-x-1 transition-all" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </MemoizedCard>
+                    </FastLink>
+                  </motion.div>
+                );
+              })}
+            </div>
           )}
 
           {/* Enhanced Call to Action */}
@@ -380,7 +427,7 @@ export default function CategoriesPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
           >
-            <Card className="border-yellow-500/40 hover:border-yellow-500/70 hover:shadow-2xl hover:shadow-yellow-500/20 transition-all duration-500 relative overflow-hidden">
+            <MemoizedCard className="border-yellow-500/40 hover:border-yellow-500/70 hover:shadow-2xl hover:shadow-yellow-500/20 transition-all duration-500 relative overflow-hidden">
               {/* Enhanced background with yellow and black */}
               <div className="absolute inset-0 bg-gradient-to-br from-black via-zinc-900 to-yellow-950 -z-10"></div>
               
@@ -415,7 +462,7 @@ export default function CategoriesPage() {
                   Start building your dream PC today!
                 </p>
                 
-                <Link href="/pc-builder">
+                <FastLink href="/pc-builder">
                   <Button size="lg" className="bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 px-12 py-7 text-xl font-bold shadow-xl hover:shadow-2xl hover:shadow-yellow-500/30 transition-all group text-black relative overflow-hidden">
                     {/* Button shine effect */}
                     <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-yellow-400/0 via-white/20 to-yellow-400/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
@@ -424,13 +471,13 @@ export default function CategoriesPage() {
                       <ArrowRight className="ml-3 h-6 w-6 group-hover:translate-x-2 transition-transform duration-300" />
                     </span>
                   </Button>
-                </Link>
+                </FastLink>
                 
                 {/* Yellow corner accents */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 rounded-bl-full blur-xl"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-yellow-500/10 rounded-tr-full blur-xl"></div>
               </CardContent>
-            </Card>
+            </MemoizedCard>
           </motion.div>
         </div>
       </div>

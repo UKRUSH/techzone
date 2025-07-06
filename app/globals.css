@@ -48,6 +48,166 @@
   }
 }
 
+@keyframes grid-move {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(50px, 50px); }
+}
+
+@keyframes scan-vertical {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(calc(100vh + 100%)); }
+}
+
+@keyframes tech-glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px rgba(255, 239, 0, 0.2), 0 0 10px rgba(255, 239, 0, 0.1);
+  }
+  50% { 
+    box-shadow: 0 0 15px rgba(255, 239, 0, 0.4), 0 0 25px rgba(255, 239, 0, 0.2);
+  }
+}
+
+@keyframes circuit-pulse {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes data-flow {
+  0% { transform: translateX(-100%) translateY(0); }
+  50% { transform: translateX(50vw) translateY(-10px); }
+  100% { transform: translateX(100vw) translateY(0); }
+}
+
+@keyframes hologram {
+  0%, 100% { 
+    transform: scale(1) rotateY(0deg);
+    opacity: 0.8;
+  }
+  50% { 
+    transform: scale(1.02) rotateY(2deg);
+    opacity: 1;
+  }
+}
+
+@keyframes matrix-rain {
+  0% { transform: translateY(-100vh); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+@keyframes energy-pulse {
+  0% { 
+    background-position: 0% 50%;
+    filter: brightness(1);
+  }
+  50% { 
+    background-position: 100% 50%;
+    filter: brightness(1.2);
+  }
+  100% { 
+    background-position: 0% 50%;
+    filter: brightness(1);
+  }
+}
+
+@keyframes cyber-border {
+  0% { 
+    border-image-source: linear-gradient(45deg, 
+      rgba(255, 239, 0, 0.1), 
+      rgba(255, 239, 0, 0.8), 
+      rgba(255, 239, 0, 0.1)
+    );
+  }
+  50% { 
+    border-image-source: linear-gradient(45deg, 
+      rgba(255, 239, 0, 0.8), 
+      rgba(255, 239, 0, 0.1), 
+      rgba(255, 239, 0, 0.8)
+    );
+  }
+  100% { 
+    border-image-source: linear-gradient(45deg, 
+      rgba(255, 239, 0, 0.1), 
+      rgba(255, 239, 0, 0.8), 
+      rgba(255, 239, 0, 0.1)
+    );
+  }
+}
+
+/* Enhanced Deal Card Animations */
+@keyframes hologram {
+  0%, 100% { 
+    background-position: 0% 50%; 
+    filter: hue-rotate(0deg);
+  }
+  50% { 
+    background-position: 100% 50%; 
+    filter: hue-rotate(180deg);
+  }
+}
+
+@keyframes cyber-pulse {
+  0%, 100% { 
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes price-glow {
+  0%, 100% { 
+    text-shadow: 0 0 5px rgba(34, 197, 94, 0.3);
+  }
+  50% { 
+    text-shadow: 0 0 20px rgba(34, 197, 94, 0.8), 0 0 30px rgba(34, 197, 94, 0.6);
+  }
+}
+
+@keyframes discount-bounce {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg);
+  }
+  25% { 
+    transform: scale(1.05) rotate(1deg);
+  }
+  75% { 
+    transform: scale(1.05) rotate(-1deg);
+  }
+}
+
+@keyframes sparkle-trail {
+  0% { 
+    transform: translateX(-100%) rotate(0deg);
+    opacity: 0;
+  }
+  50% { 
+    opacity: 1;
+  }
+  100% { 
+    transform: translateX(100%) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes data-stream {
+  0% { 
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  50% { 
+    opacity: 1;
+  }
+  100% { 
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+/* Enhanced utility classes */
 .animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 .animate-pulse-slower { animation: pulse 5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 .animate-ping-slow { animation: ping 3s cubic-bezier(0, 0, 0.2, 1) infinite; }
@@ -55,6 +215,72 @@
 .animate-shimmer-slow { animation: shimmer 4s linear infinite; }
 .animate-fade-in { animation: fadeIn 0.7s ease; }
 .animate-fade-in-slow { animation: fadeIn 1.2s ease; }
+.animate-grid-move { animation: grid-move 20s linear infinite; }
+.animate-scan-vertical { animation: scan-vertical 2s ease-in-out; }
+.animate-tech-glow { animation: tech-glow 3s ease-in-out infinite; }
+.animate-circuit-pulse { animation: circuit-pulse 4s ease-in-out infinite; }
+.animate-data-flow { animation: data-flow 8s linear infinite; }
+.animate-hologram { animation: hologram 6s ease-in-out infinite; }
+.animate-matrix-rain { animation: matrix-rain 10s linear infinite; }
+.animate-energy-pulse { animation: energy-pulse 3s ease-in-out infinite; }
+.animate-cyber-border { animation: cyber-border 4s linear infinite; }
+.animate-spin-slow { animation: spin 8s linear infinite; }
+.animate-hologram {
+  animation: hologram 3s ease-in-out infinite;
+  background-size: 200% 200%;
+}
+
+.animate-cyber-pulse {
+  animation: cyber-pulse 2s ease-in-out infinite;
+}
+
+.animate-price-glow {
+  animation: price-glow 2s ease-in-out infinite;
+}
+
+.animate-discount-bounce {
+  animation: discount-bounce 1s ease-in-out infinite;
+}
+
+.animate-sparkle-trail {
+  animation: sparkle-trail 2s linear infinite;
+}
+
+.animate-data-stream {
+  animation: data-stream 1.5s linear infinite;
+}
+
+/* Enhanced hover states */
+.deal-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.deal-card-hover:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(239, 68, 68, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.neon-text {
+  text-shadow: 
+    0 0 5px currentColor,
+    0 0 10px currentColor,
+    0 0 15px currentColor,
+    0 0 20px currentColor;
+}
+
+.holographic-border {
+  background: linear-gradient(45deg, 
+    rgba(255, 0, 150, 0.3),
+    rgba(0, 255, 255, 0.3),
+    rgba(255, 255, 0, 0.3),
+    rgba(255, 0, 150, 0.3)
+  );
+  background-size: 300% 300%;
+  animation: hologram 2s ease-in-out infinite;
+}
 
 @custom-variant dark (&:is(.dark *));
 

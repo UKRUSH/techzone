@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/components/providers/CartProvider";
+import { FastLink } from "@/components/navigation/FastNavigation";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -260,27 +261,27 @@ export function Header() {
         {/* Navigation - Desktop */}
         <nav className="hidden md:flex items-center space-x-8 py-3 border-t border-yellow-400/20">
           {navigation.map((item) => (
-            <Link
+            <FastLink
               key={item.name}
               href={item.href}
               className="text-sm font-medium text-white hover:text-yellow-400 transition-colors relative group"
             >
               {item.name}
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300"></span>
-            </Link>
+            </FastLink>
           ))}
           
           {/* Quick Categories */}
           <div className="flex items-center space-x-4 ml-auto">
             {categories.map((category) => (
-              <Link
+              <FastLink
                 key={category.name}
                 href={category.href}
                 className="flex items-center space-x-2 text-sm text-white/80 hover:text-yellow-400 transition-colors group"
               >
                 <category.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
                 <span>{category.name}</span>
-              </Link>
+              </FastLink>
             ))}
           </div>
         </nav>
@@ -311,14 +312,14 @@ export function Header() {
               {/* Mobile Navigation */}
               <nav className="space-y-2">
                 {navigation.map((item) => (
-                  <Link
+                  <FastLink
                     key={item.name}
                     href={item.href}
                     className="block px-3 py-2 text-base font-medium text-white hover:text-yellow-400 hover:bg-yellow-400/10 rounded-md transition-all"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {item.name}
-                  </Link>
+                  </FastLink>
                 ))}
               </nav>
 

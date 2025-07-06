@@ -1,0 +1,98 @@
+[
+  {
+    "id": "1751802244584gshwzwor7",
+    "name": "rush",
+    "description": "cmnncc",
+    "price": 3444,
+    "category": "GPU",
+    "brand": "AMD",
+    "stock": 45,
+    "imageUrl": "https://www.google.com/url?sa=i&url=https%3A%2F%2Funsplash.com%2Fs%2Fphotos%2Fgpu&psig=AOvVaw19NNRK8GlhxKZi-TJ5F7uh&ust=1751888632135000&source=images&cd=vfe&opi=89978449&ved=0CBEQjRxqFwoTCJDJk-2TqI4DFQAAAAAdAAAAABAE",
+    "createdAt": "2025-07-06T11:44:04.584Z",
+    "updatedAt": "2025-07-06T11:44:04.584Z"
+  },
+  {
+    "id": "1751802171391j3l846pbh",
+    "name": "Test Product",
+    "description": "Test Description",
+    "price": 99.99,
+    "category": "CPU",
+    "brand": "Intel",
+    "stock": 10,
+    "imageUrl": "",
+    "createdAt": "2025-07-06T11:42:51.391Z",
+    "updatedAt": "2025-07-06T11:42:51.391Z"
+  },
+  {
+    "id": "prod_001",
+    "name": "Intel Core i7-13700K",
+    "description": "High-performance 13th Gen Intel processor with 16 cores and 24 threads. Perfect for gaming and content creation.",
+    "price": 419.99,
+    "category": "CPU",
+    "brand": "Intel",
+    "stock": 25,
+    "imageUrl": "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=400&h=400&fit=crop",
+    "createdAt": "2025-01-15T10:00:00.000Z",
+    "updatedAt": "2025-01-15T10:00:00.000Z"
+  },
+  {
+    "id": "prod_002",
+    "name": "NVIDIA GeForce RTX 4080",
+    "description": "Flagship graphics card with ray tracing and DLSS 3.0 support. Delivers exceptional 4K gaming performance.",
+    "price": 1199.99,
+    "category": "GPU",
+    "brand": "NVIDIA",
+    "stock": 15,
+    "imageUrl": "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=400&h=400&fit=crop",
+    "createdAt": "2025-01-15T10:00:00.000Z",
+    "updatedAt": "2025-01-15T10:00:00.000Z"
+  },
+  {
+    "id": "prod_003",
+    "name": "Corsair Vengeance LPX 32GB DDR4",
+    "description": "High-speed DDR4 memory kit with 3200MHz frequency. Optimized for Intel and AMD platforms.",
+    "price": 149.99,
+    "category": "Memory",
+    "brand": "Corsair",
+    "stock": 40,
+    "imageUrl": "https://images.unsplash.com/photo-1541029071515-84cc054504e5?w=400&h=400&fit=crop",
+    "createdAt": "2025-01-15T10:00:00.000Z",
+    "updatedAt": "2025-01-15T10:00:00.000Z"
+  },
+  {
+    "id": "prod_004",
+    "name": "Samsung 980 PRO 1TB NVMe SSD",
+    "description": "Ultra-fast PCIe 4.0 NVMe SSD with read speeds up to 7,000 MB/s. Perfect for demanding applications.",
+    "price": 129.99,
+    "category": "Storage",
+    "brand": "Samsung",
+    "stock": 30,
+    "imageUrl": "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=400&h=400&fit=crop",
+    "createdAt": "2025-01-15T10:00:00.000Z",
+    "updatedAt": "2025-01-15T10:00:00.000Z"
+  },
+  {
+    "id": "prod_005",
+    "name": "ASUS ROG Strix Z790-E",
+    "description": "Premium Intel Z790 motherboard with WiFi 6E, PCIe 5.0, and advanced overclocking features.",
+    "price": 499.99,
+    "category": "Motherboard",
+    "brand": "ASUS",
+    "stock": 20,
+    "imageUrl": "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?w=400&h=400&fit=crop",
+    "createdAt": "2025-01-15T10:00:00.000Z",
+    "updatedAt": "2025-01-15T10:00:00.000Z"
+  },
+  {
+    "id": "prod_006",
+    "name": "Corsair RM850x 850W PSU",
+    "description": "80 PLUS Gold certified fully modular power supply with 10-year warranty. Silent operation guaranteed.",
+    "price": 179.99,
+    "category": "Power Supply",
+    "brand": "Corsair",
+    "stock": 35,
+    "imageUrl": "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&h=400&fit=crop",
+    "createdAt": "2025-01-15T10:00:00.000Z",
+    "updatedAt": "2025-01-15T10:00:00.000Z"
+  }
+]

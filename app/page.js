@@ -11,64 +11,95 @@ import {
   Monitor, 
   HardDrive, 
   MemoryStick, 
-  Microchip, 
-  Power, 
-  Fan,
   ArrowRight,
   Star,
   Zap,
   Shield,
-  Truck
+  Truck,
+  Package,
+  Trophy,
+  ShoppingCart
 } from "lucide-react";
-import Link from "next/link";
+import { memo, useState, useEffect } from "react";
+import { FastLink } from "@/components/navigation/FastNavigation";
 
-export default function Home() {
-  const categories = [
-    { name: "CPUs", icon: Cpu, count: "150+", href: "/category/cpu" },
-    { name: "Graphics Cards", icon: Monitor, count: "89+", href: "/category/gpu" },
-    { name: "Storage", icon: HardDrive, count: "200+", href: "/category/storage" },
-    { name: "RAM", icon: MemoryStick, count: "120+", href: "/category/ram" },
-    { name: "Motherboards", icon: Microchip, count: "95+", href: "/category/motherboard" },
-    { name: "Power Supplies", icon: Power, count: "75+", href: "/category/psu" },
-    { name: "Cooling", icon: Fan, count: "110+", href: "/category/cooling" },
+// Memoized components for database rendering
+const MemoizedCard = memo(function MemoizedCard({ children, ...props }) {
+  return <Card {...props}>{children}</Card>;
+});
+
+const MemoizedMotion = memo(function MemoizedMotion({ children, ...props }) {
+  return <motion.div {...props}>{children}</motion.div>;
+});
+
+export default function HomePage() {
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch featured products from database
+  useEffect(() => {
+    fetchFeaturedProducts();
+  }, []);
+
+  const fetchFeaturedProducts = async () => {
+    try {
+      const response = await fetch('/api/products?limit=6');
+      if (response.ok) {
+        const result = await response.json();
+        const productsData = result.data || [];
+        // Convert database format to component format
+        const formattedProducts = productsData.map(product => ({
+          id: product.id,
+          name: product.name,
+          price: product.variants?.[0]?.price || 0,
+          category: product.category?.name || 'Other',
+          brand: product.brand?.name || 'Unknown',
+          rating: 5
+        }));
+        setFeaturedProducts(formattedProducts);
+      }
+    } catch (error) {
+      console.error('Error fetching featured products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const stats = [
+    { label: "Products", value: "5000+", icon: Package },
+    { label: "Happy Customers", value: "50K+", icon: Star },
+    { label: "Years Experience", value: "10+", icon: Trophy },
+    { label: "Fast Shipping", value: "24H", icon: Truck },
   ];
 
-  const featuredProducts = [
+  const featuredCategories = [
     {
-      id: 1,
-      name: "AMD Ryzen 9 7900X",
-      category: "CPU",
-      price: 599.99,
-      originalPrice: 699.99,
-      rating: 4.8,
-      reviews: 1247,
-      image: "/api/placeholder/300/300",
-      badge: "Best Seller",
-      specs: ["12 Cores", "24 Threads", "5.6 GHz Max"]
+      title: "Gaming CPUs",
+      description: "High-performance processors for ultimate gaming",
+      icon: Cpu,
+      href: "/products?category=cpu",
+      gradient: "from-blue-600 to-purple-600"
     },
     {
-      id: 2,
-      name: "NVIDIA RTX 4080 Super",
-      category: "GPU",
-      price: 999.99,
-      originalPrice: 1199.99,
-      rating: 4.9,
-      reviews: 892,
-      image: "/api/placeholder/300/300",
-      badge: "New",
-      specs: ["16GB GDDR6X", "Ray Tracing", "DLSS 3"]
+      title: "Graphics Cards",
+      description: "Latest GPUs for 4K gaming and content creation",
+      icon: Monitor,
+      href: "/products?category=gpu",
+      gradient: "from-green-600 to-blue-600"
     },
     {
-      id: 3,
-      name: "Samsung 980 PRO 2TB",
-      category: "Storage",
-      price: 179.99,
-      originalPrice: 249.99,
-      rating: 4.7,
-      reviews: 2156,
-      image: "/api/placeholder/300/300",
-      badge: "Sale",
-      specs: ["PCIe 4.0", "7000MB/s", "5 Year Warranty"]
+      title: "Storage Solutions",
+      description: "Fast SSDs and reliable HDDs for all your needs",
+      icon: HardDrive,
+      href: "/products?category=storage",
+      gradient: "from-yellow-600 to-red-600"
+    },
+    {
+      title: "Memory & RAM",
+      description: "High-speed memory modules and kits",
+      icon: MemoryStick,
+      href: "/products?category=memory",
+      gradient: "from-purple-600 to-pink-600"
     }
   ];
 
@@ -76,226 +107,288 @@ export default function Home() {
     {
       icon: Zap,
       title: "Lightning Fast Delivery",
-      description: "Get your components delivered within 24-48 hours"
+      description: "Get your components delivered within 24 hours"
     },
     {
       icon: Shield,
-      title: "Extended Warranty",
-      description: "All products come with extended warranty coverage"
+      title: "Quality Guarantee",
+      description: "All products come with manufacturer warranty"
     },
     {
-      icon: Truck,
-      title: "Free Shipping",
-      description: "Free shipping on orders over $150"
+      icon: Cpu,
+      title: "Expert Support",
+      description: "Get help from our PC building experts"
     }
   ];
 
+  const categoryColors = {
+    gpu: 'from-blue-600 to-purple-600',
+    cpu: 'from-red-600 to-orange-600',
+    storage: 'from-green-600 to-cyan-600',
+    memory: 'from-purple-600 to-pink-600',
+    motherboard: 'from-yellow-600 to-red-600',
+    'power-supply': 'from-gray-600 to-gray-500'
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-900 to-zinc-800 relative overflow-x-hidden">
+    <div className="min-h-screen bg-black text-white">
       <Header />
-      {/* Animated SVG Background for Hero */}
-      <div className="absolute top-0 left-0 w-full h-[600px] pointer-events-none z-0">
-        <svg width="100%" height="100%" viewBox="0 0 1440 600" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <defs>
-            <linearGradient id="heroGradient" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#facc15" stopOpacity="0.12" />
-              <stop offset="100%" stopColor="#fbbf24" stopOpacity="0.08" />
-            </linearGradient>
-          </defs>
-          <ellipse cx="720" cy="300" rx="900" ry="300" fill="url(#heroGradient)" />
-        </svg>
+      
+      {/* Instant Loading Indicator */}
+      <div className="fixed top-4 right-4 z-50 bg-green-500/20 text-green-400 border border-green-400/30 px-3 py-2 rounded-lg text-sm font-medium">
+        <Zap className="w-4 h-4 inline mr-2" />
+        Instant Loading
       </div>
+      
       {/* Hero Section */}
-      <section className="relative py-24 overflow-hidden z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-transparent to-black/60" />
+      <section className="relative overflow-hidden py-20 lg:py-32">
+        {/* Animated background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-black via-black to-yellow-900/20" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,239,0,0.1),transparent_50%)]" />
+        </div>
+        
         <div className="container mx-auto px-4 relative">
           <div className="max-w-4xl mx-auto text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
+            <MemoizedMotion
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
+              transition={{ duration: 0.4 }}
             >
-              <Badge variant="secondary" className="mb-6 bg-yellow-400/20 text-yellow-400 border-yellow-400/30 shadow-lg px-4 py-2 text-base font-semibold tracking-wide animate-pulse">
-                <Zap className="w-4 h-4 mr-2 animate-bounce" />
-                New Arrivals Weekly
-              </Badge>
-              <h1 className="text-5xl md:text-7xl font-extrabold mb-8 text-white drop-shadow-lg leading-tight">
-                Build Your Dream
-                <span className="text-yellow-400 block drop-shadow">Gaming Rig</span>
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-yellow-200 to-yellow-400 bg-clip-text text-transparent">
+                Build Your Dream PC
               </h1>
-              <p className="text-2xl text-white/80 mb-10 max-w-2xl mx-auto font-light">
-                Discover the latest PC components and hardware from top brands. 
-                Build, upgrade, and optimize your system with our premium selection.
+              <p className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed">
+                Premium PC components, expert guidance, and lightning-fast delivery.
+                Your ultimate tech destination.
               </p>
-              <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                <Button size="lg" className="text-lg px-10 py-5 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-full shadow-xl transition-transform hover:scale-105">
-                  <Link href="/products" className="flex items-center">
-                    Shop Components
-                    <ArrowRight className="ml-3 w-6 h-6" />
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" className="text-lg px-10 py-5 border-yellow-400/40 text-white hover:bg-yellow-400/10 hover:border-yellow-400 rounded-full font-bold shadow-xl transition-transform hover:scale-105">
-                  <Link href="/pc-builder" className="flex items-center">
-                    Build PC
-                    <Cpu className="ml-3 w-6 h-6" />
-                  </Link>
-                </Button>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <FastLink href="/products">
+                  <Button size="lg" className="bg-yellow-400 hover:bg-yellow-300 text-black font-semibold px-8 py-4 text-lg">
+                    Shop Now
+                    <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                </FastLink>
+                
+                <FastLink href="/pc-builder">
+                  <Button variant="outline" size="lg" className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-4 text-lg">
+                    Build Custom PC
+                  </Button>
+                </FastLink>
               </div>
-            </motion.div>
+            </MemoizedMotion>
           </div>
         </div>
       </section>
-      {/* Categories Grid */}
-      <section className="py-20 bg-zinc-900/60 backdrop-blur-md">
+
+      {/* Stats Section */}
+      <section className="py-16 border-y border-yellow-400/20">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl font-bold mb-4 text-white tracking-tight">Shop by Category</h2>
-            <p className="text-lg text-zinc-400">Find exactly what you need for your build</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-8">
-            {categories.map((category, index) => (
-              <motion.div
-                key={category.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-              >
-                <Link href={category.href}>
-                  <Card className="hover:shadow-2xl transition-all duration-300 hover:scale-110 group cursor-pointer bg-zinc-800/80 border-0 rounded-2xl">
-                    <CardContent className="p-8 text-center flex flex-col items-center">
-                      <category.icon className="w-14 h-14 mb-5 text-yellow-400 group-hover:text-yellow-300 transition-colors drop-shadow" />
-                      <h3 className="font-semibold text-lg text-white mb-2 tracking-wide group-hover:text-yellow-400 transition-colors">
-                        {category.name}
-                      </h3>
-                      <Badge variant="secondary" className="bg-yellow-400/20 text-yellow-400 border-yellow-400/30 px-3 py-1 text-sm font-medium">
-                        {category.count} items
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </motion.div>
-            ))}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <MemoizedMotion
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  className="text-center"
+                >
+                  <Icon className="w-8 h-8 mx-auto mb-3 text-yellow-400" />
+                  <div className="text-2xl md:text-3xl font-bold text-white mb-1">{stat.value}</div>
+                  <div className="text-gray-400 text-sm">{stat.label}</div>
+                </MemoizedMotion>
+              );
+            })}
           </div>
         </div>
       </section>
-      {/* Featured Products */}
+
+      {/* Featured Categories */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl font-bold mb-4 text-white tracking-tight">Featured Products</h2>
-            <p className="text-lg text-zinc-400">Hand-picked components for enthusiasts</p>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-yellow-400 bg-clip-text text-transparent">
+              Featured Categories
+            </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+              Explore our curated selection of high-performance components
+            </p>
+            <Badge className="mt-2 bg-green-500/20 text-green-400 border-green-400/30">
+              ⚡ Instant Access
+            </Badge>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {featuredProducts.map((product, index) => (
-              <motion.div
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {featuredCategories.map((category, index) => {
+              const Icon = category.icon;
+              return (
+                <MemoizedMotion
+                  key={category.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  whileHover={{ y: -5 }}
+                >
+                  <FastLink href={category.href}>
+                    <MemoizedCard className="group bg-gradient-to-b from-black/90 via-black/80 to-black/90 border-yellow-400/30 hover:border-yellow-400/60 transition-all duration-200 cursor-pointer h-full">
+                      <CardHeader className="text-center pb-2">
+                        <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${category.gradient} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
+                          <Icon className="w-8 h-8 text-white" />
+                        </div>
+                        <CardTitle className="text-white group-hover:text-yellow-400 transition-colors">
+                          {category.title}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <CardDescription className="text-gray-400 text-center">
+                          {category.description}
+                        </CardDescription>
+                      </CardContent>
+                    </MemoizedCard>
+                  </FastLink>
+                </MemoizedMotion>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20 bg-gradient-to-b from-transparent to-yellow-900/10">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+              Why Choose TechZone?
+            </h2>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            {features.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <MemoizedMotion
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  className="text-center"
+                >
+                  <Icon className="w-12 h-12 mx-auto mb-4 text-yellow-400" />
+                  <h3 className="text-xl font-semibold mb-2 text-white">{feature.title}</h3>
+                  <p className="text-gray-400">{feature.description}</p>
+                </MemoizedMotion>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Instant Featured Products */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+              Featured Products
+            </h2>
+            <p className="text-gray-400 text-lg">
+              Hand-picked components for your next build
+            </p>
+            <Badge className="mt-2 bg-green-500/20 text-green-400 border-green-400/30">
+              ⚡ Instant Loading
+            </Badge>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            {featuredProducts.slice(0, 3).map((product, index) => (
+              <MemoizedMotion
                 key={product.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.2 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
               >
-                <Card className="hover:shadow-2xl transition-all duration-300 group overflow-hidden rounded-2xl bg-zinc-800/80 border-0">
-                  <div className="relative">
-                    <div className="bg-zinc-900/60 h-64 flex items-center justify-center">
-                      <Monitor className="w-24 h-24 text-zinc-600" />
-                    </div>
-                    <Badge 
-                      className={`absolute top-4 left-4 px-4 py-2 text-base font-semibold shadow ${product.badge === "Sale" ? "bg-red-500/90 text-white" : product.badge === "New" ? "bg-green-500/90 text-white" : "bg-yellow-400/90 text-black"}`}
+                <Card className="bg-gradient-to-b from-black/90 via-black/80 to-black/90 border-yellow-400/30 hover:border-yellow-400/60 transition-all duration-200 group h-full">
+                  <CardHeader>
+                    <div 
+                      className={`aspect-square rounded-lg mb-4 flex items-center justify-center relative bg-gradient-to-br ${categoryColors[product.category] || 'from-gray-600 to-gray-500'}`}
                     >
-                      {product.badge}
-                    </Badge>
-                  </div>
-                  <CardContent className="p-8">
-                    <div className="flex items-center justify-between mb-3">
-                      <Badge variant="outline" className="text-yellow-400 border-yellow-400/40 px-3 py-1 text-sm font-medium bg-zinc-900/40">
-                        {product.category}
-                      </Badge>
-                      <div className="flex items-center">
-                        <Star className="w-5 h-5 fill-yellow-400 text-yellow-400 mr-1" />
-                        <span className="text-base font-semibold text-white">{product.rating}</span>
-                        <span className="text-sm text-zinc-400 ml-1">
-                          ({product.reviews})
-                        </span>
+                      <Package className="w-12 h-12 text-white/80" />
+                      <div className="absolute top-2 right-2">
+                        <Badge className="bg-black/50 text-white border-white/20 text-xs">
+                          {product.category.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <div className="absolute bottom-2 right-2 bg-black/70 rounded px-2 py-1">
+                        <span className="text-yellow-400 font-bold text-sm">${product.price}</span>
                       </div>
                     </div>
-                    <h3 className="font-bold text-xl mb-3 group-hover:text-yellow-400 transition-colors text-white">
+                    <CardTitle className="text-white group-hover:text-yellow-400 transition-colors">
                       {product.name}
-                    </h3>
-                    <div className="space-y-1 mb-5">
-                      {product.specs.map((spec, i) => (
-                        <div key={i} className="text-sm text-zinc-400">
-                          • {spec}
-                        </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center mb-2">
+                      {[...Array(5)].map((_, i) => (
+                        <Star 
+                          key={i} 
+                          className={`w-4 h-4 ${i < product.rating ? 'text-yellow-400 fill-current' : 'text-gray-600'}`} 
+                        />
                       ))}
+                      <span className="ml-2 text-gray-400 text-sm">({product.rating})</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-3xl font-bold text-yellow-400">
-                          ${product.price}
-                        </span>
-                        {product.originalPrice && (
-                          <span className="text-base text-zinc-500 line-through ml-3">
-                            ${product.originalPrice}
-                          </span>
-                        )}
+                        <span className="text-2xl font-bold text-yellow-400">${product.price}</span>
+                        <div className="text-xs text-gray-500 uppercase">{product.brand}</div>
                       </div>
-                      <Button className="rounded-full px-6 py-3 font-bold bg-yellow-400 hover:bg-yellow-300 text-black shadow-lg transition-transform hover:scale-105">
-                        Add to Cart
+                      <Button size="sm" variant="outline" className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black">
+                        <ShoppingCart className="w-4 h-4 mr-1" />
+                        Add
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
+              </MemoizedMotion>
             ))}
+          </div>
+          
+          <div className="text-center">
+            <FastLink href="/products">
+              <Button size="lg" variant="outline" className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black">
+                View All Products
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
+            </FastLink>
           </div>
         </div>
       </section>
-      {/* Features */}
-      <section className="py-20 bg-zinc-900/60 backdrop-blur-md">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-10">
-            {features.map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.2 }}
-                className="text-center"
-              >
-                <feature.icon className="w-14 h-14 mx-auto mb-5 text-yellow-400 animate-pulse" />
-                <h3 className="text-2xl font-semibold mb-3 text-white tracking-wide">{feature.title}</h3>
-                <p className="text-lg text-zinc-400">{feature.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-r from-yellow-400/10 via-transparent to-yellow-400/5">
+      <section className="py-20 bg-gradient-to-r from-yellow-400/20 to-yellow-600/20 border-t border-yellow-400/20">
         <div className="container mx-auto px-4 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+          <MemoizedMotion
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.4 }}
           >
-            <h2 className="text-4xl font-bold mb-6 text-white tracking-tight">Ready to Build?</h2>
-            <p className="text-2xl text-zinc-400 mb-10 max-w-2xl mx-auto font-light">
-              Use our PC Builder tool to create your perfect system, or explore our curated component selection.
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+              Ready to Build Your Dream Setup?
+            </h2>
+            <p className="text-gray-300 text-lg mb-8 max-w-2xl mx-auto">
+              Join thousands of satisfied customers who trust TechZone for their PC building needs.
             </p>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Button size="lg" className="text-lg px-10 py-5 rounded-full font-bold bg-yellow-400 hover:bg-yellow-300 text-black shadow-xl transition-transform hover:scale-105">
-                <Link href="/pc-builder">
-                  Start Building
-                </Link>
+            <FastLink href="/products">
+              <Button size="lg" className="bg-yellow-400 hover:bg-yellow-300 text-black font-semibold px-12 py-4 text-lg">
+                Start Shopping
+                <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-10 py-5 rounded-full font-bold border-yellow-400/40 text-white hover:bg-yellow-400/10 hover:border-yellow-400 shadow-xl transition-transform hover:scale-105">
-                <Link href="/products">
-                  Browse All Products
-                </Link>
-              </Button>
-            </div>
-          </motion.div>
+            </FastLink>
+          </MemoizedMotion>
         </div>
       </section>
+
       <Footer />
     </div>
   );

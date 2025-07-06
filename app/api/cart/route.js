@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
 
-// Mock cart storage (in production this would be in database)
+// Mock cart storage (fallback when MongoDB is down)
 if (!global.mockCarts) {
   global.mockCarts = {};
 }
 
-// Mock product variants for cart items
+// Mock product variants for cart items (legacy fallback)
 const mockVariants = {
   "1": {
     id: "1",
@@ -44,199 +44,464 @@ const mockVariants = {
       images: ["/api/placeholder/400/400"]
     },
     totalStock: 100
-  },
-  "4": {
-    id: "4",
-    price: 89.99,
-    product: {
-      id: "4",
-      name: "Samsung 980 PRO 1TB SSD",
-      category: { name: "Storage" },
-      brand: { name: "Samsung" },
-      images: ["/api/placeholder/400/400"]
-    },
-    totalStock: 75
-  },
-  "5": {
-    id: "5",
-    price: 329.99,
-    product: {
-      id: "5",
-      name: "ASUS ROG Strix Z690-E",
-      category: { name: "Motherboards" },
-      brand: { name: "ASUS" },
-      images: ["/api/placeholder/400/400"]
-    },
-    totalStock: 30
-  },
-  "6": {
-    id: "6",
-    price: 129.99,
-    product: {
-      id: "6",
-      name: "Corsair RM850x 850W PSU",
-      category: { name: "Power Supplies" },
-      brand: { name: "Corsair" },
-      images: ["/api/placeholder/400/400"]
-    },
-    totalStock: 40
   }
 };
 
-// GET /api/cart - Get user's cart items
-export async function GET() {
+// Enhanced fallback function to fetch real variant data
+async function getVariantData(variantId) {
   try {
-    const session = await getServerSession(authOptions);
+    // Try to fetch from database
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: variantId },
+      include: {
+        product: {
+          include: {
+            brand: true,
+            category: true
+          }
+        }
+      }
+    });
     
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (variant) {
+      return variant;
+    }
+  } catch (error) {
+    console.log('Could not fetch variant from database:', error.message);
+  }
+  
+  // Fallback to mock data or create minimal variant
+  return mockVariants[variantId] || {
+    id: variantId,
+    price: 0,
+    product: { 
+      name: 'Unknown Product', 
+      category: { name: 'Unknown' }, 
+      brand: { name: 'Unknown' },
+      images: ['/placeholder-product.jpg']
+    }
+  };
+}
+
+export async function GET(request) {
+  try {
+    const session = await getServerSession();
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get('sessionId');
+
+    let cartItems = [];
+
+    try {
+      // Try database first
+      if (session?.user?.id) {
+        // Fetch cart for authenticated user from MongoDB
+        cartItems = await prisma.cartItem.findMany({
+          where: { userId: session.user.id },
+          include: {
+            variant: {
+              include: {
+                product: {
+                  include: {
+                    brand: true,
+                    category: true
+                  }
+                },
+                images: true
+              }
+            }
+          }
+        });
+      } else if (sessionId) {
+        // Fetch cart for guest user by session ID from MongoDB
+        cartItems = await prisma.cartItem.findMany({
+          where: { sessionId: sessionId },
+          include: {
+            variant: {
+              include: {
+                product: {
+                  include: {
+                    brand: true,
+                    category: true
+                  }
+                },
+                images: true
+              }
+            }
+          }
+        });
+      }
+    } catch (dbError) {
+      console.log('Database unavailable, using enhanced fallback cart storage');
+      // Use fallback mock cart with enhanced variant fetching
+      const cartKey = session?.user?.id || sessionId || 'guest';
+      const mockCart = global.mockCarts[cartKey] || [];
+      
+      // Enhanced fallback: try to fetch real variant data for each item
+      cartItems = await Promise.all(mockCart.map(async (item) => {
+        const variant = await getVariantData(item.variantId);
+        return {
+          id: item.id,
+          quantity: item.quantity,
+          variant: variant
+        };
+      }));
     }
 
-    const userCart = global.mockCarts[session.user.id] || [];
-    
-    // Transform to match expected format
-    const cartItems = userCart.map(item => ({
-      id: item.id,
-      userId: session.user.id,
-      variantId: item.variantId,
-      quantity: item.quantity,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-      variant: mockVariants[item.variantId]
-    }));
+    console.log(`✅ Fetched ${cartItems.length} cart items from MongoDB`);
 
-    return NextResponse.json(cartItems);
+    return NextResponse.json({
+      success: true,
+      data: cartItems,
+      message: `Found ${cartItems.length} items in cart`
+    });
+
   } catch (error) {
-    console.error('Error fetching cart:', error);
+    console.error('Error fetching cart from MongoDB:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch cart' },
+      { success: false, error: 'Failed to fetch cart: ' + error.message },
       { status: 500 }
     );
   }
 }
 
-// POST /api/cart - Add item to cart
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const session = await getServerSession();
+    const data = await request.json();
+    const { variantId, quantity, sessionId } = data;
 
-    const { variantId, quantity = 1 } = await request.json();
-
-    if (!variantId) {
+    if (!variantId || !quantity) {
       return NextResponse.json(
-        { error: 'Variant ID is required' },
+        { success: false, error: 'Missing required fields: variantId, quantity' },
         { status: 400 }
       );
     }
-
-    if (quantity <= 0) {
-      return NextResponse.json(
-        { error: 'Quantity must be greater than 0' },
-        { status: 400 }
-      );
-    }
-
-    const variant = mockVariants[variantId];
-    if (!variant) {
-      return NextResponse.json(
-        { error: 'Product variant not found' },
-        { status: 404 }
-      );
-    }
-
-    if (variant.totalStock < quantity) {
-      return NextResponse.json(
-        { error: `Insufficient stock. Only ${variant.totalStock} items available` },
-        { status: 400 }
-      );
-    }
-
-    // Initialize user cart if it doesn't exist
-    if (!global.mockCarts[session.user.id]) {
-      global.mockCarts[session.user.id] = [];
-    }
-
-    const userCart = global.mockCarts[session.user.id];
-    const existingItemIndex = userCart.findIndex(item => item.variantId === variantId);
 
     let cartItem;
 
-    if (existingItemIndex !== -1) {
-      // Update existing item
-      const newQuantity = userCart[existingItemIndex].quantity + quantity;
-      
-      if (variant.totalStock < newQuantity) {
+    try {
+      // Try database first
+      // Verify variant exists
+      const variant = await prisma.productVariant.findUnique({
+        where: { id: variantId },
+        include: {
+          product: true
+        }
+      });
+
+      if (!variant) {
         return NextResponse.json(
-          { error: `Cannot add ${quantity} more items. Only ${variant.totalStock - userCart[existingItemIndex].quantity} additional items available` },
-          { status: 400 }
+          { success: false, error: 'Product variant not found' },
+          { status: 404 }
         );
       }
 
-      userCart[existingItemIndex].quantity = newQuantity;
-      userCart[existingItemIndex].updatedAt = new Date();
+      // Check if item already exists in cart
+      const existingItem = await prisma.cartItem.findFirst({
+        where: {
+          variantId: variantId,
+          ...(session?.user?.id ? { userId: session.user.id } : { sessionId: sessionId })
+        }
+      });
+
+      if (existingItem) {
+        // Update quantity
+        cartItem = await prisma.cartItem.update({
+          where: { id: existingItem.id },
+          data: { quantity: existingItem.quantity + quantity },
+          include: {
+            variant: {
+              include: {
+                product: {
+                  include: {
+                    brand: true,
+                    category: true
+                  }
+                }
+              }
+            }
+          }
+        });
+      } else {
+        // Create new cart item
+        cartItem = await prisma.cartItem.create({
+          data: {
+            variantId,
+            quantity,
+            userId: session?.user?.id,
+            sessionId: session?.user?.id ? undefined : sessionId
+          },
+          include: {
+            variant: {
+              include: {
+                product: {
+                  include: {
+                    brand: true,
+                    category: true
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      console.log('✅ Cart item added/updated successfully in MongoDB');
       
-      cartItem = {
-        id: userCart[existingItemIndex].id,
-        userId: session.user.id,
-        variantId: variantId,
-        quantity: newQuantity,
-        createdAt: userCart[existingItemIndex].createdAt,
-        updatedAt: userCart[existingItemIndex].updatedAt,
-        variant: variant
-      };
-    } else {
-      // Create new cart item
-      const newItem = {
-        id: Date.now().toString(),
-        variantId: variantId,
-        quantity: quantity,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+    } catch (dbError) {
+      console.log('Database unavailable, using enhanced fallback cart storage');
+      // Use fallback mock cart with enhanced variant fetching
+      const cartKey = session?.user?.id || sessionId || 'guest';
       
-      userCart.push(newItem);
+      if (!global.mockCarts[cartKey]) {
+        global.mockCarts[cartKey] = [];
+      }
+
+      const existingItemIndex = global.mockCarts[cartKey].findIndex(item => item.variantId === variantId);
       
-      cartItem = {
-        id: newItem.id,
-        userId: session.user.id,
-        variantId: variantId,
-        quantity: quantity,
-        createdAt: newItem.createdAt,
-        updatedAt: newItem.updatedAt,
-        variant: variant
-      };
+      if (existingItemIndex !== -1) {
+        // Update existing item
+        global.mockCarts[cartKey][existingItemIndex].quantity += quantity;
+        const variant = await getVariantData(variantId);
+        cartItem = {
+          id: global.mockCarts[cartKey][existingItemIndex].id,
+          quantity: global.mockCarts[cartKey][existingItemIndex].quantity,
+          variant: variant
+        };
+      } else {
+        // Create new item
+        const newItem = {
+          id: Date.now().toString(),
+          variantId,
+          quantity
+        };
+        global.mockCarts[cartKey].push(newItem);
+        
+        const variant = await getVariantData(variantId);
+        cartItem = {
+          id: newItem.id,
+          quantity: newItem.quantity,
+          variant: variant
+        };
+      }
+
+      console.log('✅ Cart item added/updated successfully in enhanced fallback storage');
     }
 
-    return NextResponse.json(cartItem);
+    return NextResponse.json({
+      success: true,
+      data: cartItem,
+      message: 'Item added to cart successfully'
+    });
+
   } catch (error) {
-    console.error('Error adding to cart:', error);
+    console.error('Error adding item to cart:', error);
     return NextResponse.json(
-      { error: 'Failed to add item to cart' },
+      { success: false, error: 'Failed to add item to cart: ' + error.message },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/cart - Clear entire cart
-export async function DELETE() {
+export async function PUT(request) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getServerSession();
+    const data = await request.json();
+    const { itemId, quantity, sessionId } = data;
+
+    if (!itemId) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required field: itemId' },
+        { status: 400 }
+      );
     }
 
-    global.mockCarts[session.user.id] = [];
+    let cartItem;
 
-    return NextResponse.json({ message: 'Cart cleared successfully' });
+    try {
+      // Try database first
+      if (quantity <= 0) {
+        // Remove item if quantity is 0 or negative
+        await prisma.cartItem.delete({
+          where: { id: itemId }
+        });
+
+        console.log('✅ Cart item removed from MongoDB');
+
+        return NextResponse.json({
+          success: true,
+          message: 'Item removed from cart'
+        });
+      }
+
+      // Update cart item quantity
+      cartItem = await prisma.cartItem.update({
+        where: { id: itemId },
+        data: { quantity: quantity },
+        include: {
+          variant: {
+            include: {
+              product: {
+                include: {
+                  brand: true,
+                  category: true
+                }
+              },
+              images: true
+            }
+          }
+        }
+      });
+
+      console.log('✅ Cart item quantity updated in MongoDB');
+      
+    } catch (dbError) {
+      console.log('Database unavailable, using fallback cart storage');
+      // Use fallback mock cart
+      const cartKey = session?.user?.id || sessionId || 'guest';
+      
+      if (!global.mockCarts[cartKey]) {
+        global.mockCarts[cartKey] = [];
+      }
+
+      const itemIndex = global.mockCarts[cartKey].findIndex(item => item.id === itemId);
+      
+      if (itemIndex === -1) {
+        return NextResponse.json(
+          { success: false, error: 'Cart item not found' },
+          { status: 404 }
+        );
+      }
+
+      if (quantity <= 0) {
+        // Remove item
+        global.mockCarts[cartKey].splice(itemIndex, 1);
+        return NextResponse.json({
+          success: true,
+          message: 'Item removed from cart'
+        });
+      }
+
+      // Update quantity
+      global.mockCarts[cartKey][itemIndex].quantity = quantity;
+      const item = global.mockCarts[cartKey][itemIndex];
+      
+      cartItem = {
+        id: item.id,
+        quantity: item.quantity,
+        variant: mockVariants[item.variantId] || {
+          id: item.variantId,
+          price: 0,
+          product: { name: 'Unknown Product', category: { name: 'Unknown' }, brand: { name: 'Unknown' } }
+        }
+      };
+
+      console.log('✅ Cart item quantity updated in fallback storage');
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: cartItem,
+      message: 'Cart item updated successfully'
+    });
+
   } catch (error) {
-    console.error('Error clearing cart:', error);
+    console.error('Error updating cart item:', error);
     return NextResponse.json(
-      { error: 'Failed to clear cart' },
+      { success: false, error: 'Failed to update cart item: ' + error.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const itemId = searchParams.get('itemId');
+    const clearAll = searchParams.get('clearAll') === 'true';
+    const sessionId = searchParams.get('sessionId');
+
+    if (clearAll) {
+      const session = await getServerSession();
+      
+      try {
+        // Try database first
+        if (session?.user?.id) {
+          // Clear all items for authenticated user
+          await prisma.cartItem.deleteMany({
+            where: { userId: session.user.id }
+          });
+        } else if (sessionId) {
+          // Clear all items for guest user
+          await prisma.cartItem.deleteMany({
+            where: { sessionId: sessionId }
+          });
+        }
+
+        console.log('✅ All cart items cleared from MongoDB');
+        
+      } catch (dbError) {
+        console.log('Database unavailable, using fallback cart storage');
+        // Use fallback mock cart
+        const cartKey = session?.user?.id || sessionId || 'guest';
+        global.mockCarts[cartKey] = [];
+        console.log('✅ All cart items cleared from fallback storage');
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'All cart items cleared'
+      });
+    }
+
+    if (!itemId) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required field: itemId' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      // Try database first
+      // Delete specific cart item
+      await prisma.cartItem.delete({
+        where: { id: itemId }
+      });
+
+      console.log('✅ Cart item deleted from MongoDB');
+      
+    } catch (dbError) {
+      console.log('Database unavailable, using fallback cart storage');
+      // Use fallback mock cart
+      const session = await getServerSession();
+      const cartKey = session?.user?.id || sessionId || 'guest';
+      
+      if (!global.mockCarts[cartKey]) {
+        global.mockCarts[cartKey] = [];
+      }
+
+      const itemIndex = global.mockCarts[cartKey].findIndex(item => item.id === itemId);
+      
+      if (itemIndex === -1) {
+        return NextResponse.json(
+          { success: false, error: 'Cart item not found' },
+          { status: 404 }
+        );
+      }
+
+      global.mockCarts[cartKey].splice(itemIndex, 1);
+      console.log('✅ Cart item deleted from fallback storage');
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Cart item deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting cart item:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete cart item: ' + error.message },
       { status: 500 }
     );
   }

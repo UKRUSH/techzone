@@ -1,403 +1,252 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
-import { prisma, testDatabaseConnection } from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-// Mock products data for fast loading
-const mockProducts = [
-  {
-    id: "1",
-    name: "Intel Core i7-13700K",
-    slug: "intel-core-i7-13700k",
-    description: "High-performance processor for gaming and productivity",
-    price: 409.99,
-    originalPrice: 449.99,
-    image: "/api/placeholder/400/400",
-    images: [{ url: "/api/placeholder/400/400" }],
-    category: { id: "cpu", name: "CPU" },
-    brand: { id: "intel", name: "Intel" },
-    inStock: true,
-    status: "In Stock",
-    rating: 4.8,
-    reviews: 256,
-    totalStock: 50,
-    variants: [
-      {
-        id: "1",
-        price: 409.99,
-        compareAtPrice: 449.99,
-        attributes: {},
-        totalStock: 50
-      }
-    ]
-  },
-  {
-    id: "2", 
-    name: "NVIDIA GeForce RTX 4070",
-    slug: "nvidia-geforce-rtx-4070",
-    description: "Next-gen graphics card for 1440p gaming",
-    price: 599.99,
-    originalPrice: 649.99,
-    image: "/api/placeholder/400/400",
-    images: [{ url: "/api/placeholder/400/400" }],
-    category: { id: "gpu", name: "Graphics Cards" },
-    brand: { id: "nvidia", name: "NVIDIA" },
-    inStock: true,
-    status: "Featured",
-    rating: 4.7,
-    reviews: 189,
-    totalStock: 25,
-    variants: [
-      {
-        id: "2",
-        price: 599.99,
-        compareAtPrice: 649.99,
-        attributes: {},
-        totalStock: 25
-      }
-    ]
-  },
-  {
-    id: "3",
-    name: "Corsair Vengeance RGB Pro 32GB",
-    slug: "corsair-vengeance-rgb-pro-32gb",
-    description: "High-speed DDR4 RAM with RGB lighting",
-    price: 129.99,
-    originalPrice: 159.99,
-    image: "/api/placeholder/400/400",
-    images: [{ url: "/api/placeholder/400/400" }],
-    category: { id: "ram", name: "Memory" },
-    brand: { id: "corsair", name: "Corsair" },
-    inStock: true,
-    status: "In Stock",
-    rating: 4.6,
-    reviews: 432,
-    totalStock: 100,
-    variants: [
-      {
-        id: "3",
-        price: 129.99,
-        compareAtPrice: 159.99,
-        attributes: {},
-        totalStock: 100
-      }
-    ]
-  },
-  {
-    id: "4",
-    name: "Samsung 980 PRO 1TB SSD",
-    slug: "samsung-980-pro-1tb-ssd",
-    description: "High-speed NVMe SSD for gaming and professional use",
-    price: 89.99,
-    originalPrice: 119.99,
-    image: "/api/placeholder/400/400",
-    images: [{ url: "/api/placeholder/400/400" }],
-    category: { id: "storage", name: "Storage" },
-    brand: { id: "samsung", name: "Samsung" },
-    inStock: true,
-    status: "Low Stock",
-    rating: 4.9,
-    reviews: 672,
-    totalStock: 75,
-    variants: [
-      {
-        id: "4",
-        price: 89.99,
-        compareAtPrice: 119.99,
-        attributes: {},
-        totalStock: 75
-      }
-    ]
-  },
-  {
-    id: "5",
-    name: "ASUS ROG Strix Z690-E",
-    slug: "asus-rog-strix-z690-e",
-    description: "Premium motherboard with Wi-Fi 6E and RGB",
-    price: 329.99,
-    originalPrice: 379.99,
-    image: "/api/placeholder/400/400",
-    images: [{ url: "/api/placeholder/400/400" }],
-    category: { id: "motherboard", name: "Motherboards" },
-    brand: { id: "asus", name: "ASUS" },
-    inStock: true,
-    status: "In Stock",
-    rating: 4.7,
-    reviews: 198,
-    totalStock: 30,
-    variants: [
-      {
-        id: "5",
-        price: 329.99,
-        compareAtPrice: 379.99,
-        attributes: {},
-        totalStock: 30
-      }
-    ]
-  },
-  {
-    id: "6",
-    name: "Corsair RM850x 850W PSU",
-    slug: "corsair-rm850x-850w-psu",
-    description: "Fully modular 80+ Gold certified power supply",
-    price: 129.99,
-    originalPrice: 149.99,
-    image: "/api/placeholder/400/400",
-    images: [{ url: "/api/placeholder/400/400" }],
-    category: { id: "psu", name: "Power Supplies" },
-    brand: { id: "corsair", name: "Corsair" },
-    inStock: true,
-    status: "In Stock",
-    rating: 4.8,
-    reviews: 345,
-    totalStock: 40,
-    variants: [
-      {
-        id: "6",
-        price: 129.99,
-        compareAtPrice: 149.99,
-        attributes: {},
-        totalStock: 40
-      }
-    ]
+// Cache for static data (categories, brands)
+let categoriesCache = null;
+let brandsCache = null;
+let cacheTimestamp = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Helper function to get cached categories and brands
+async function getCachedMetadata() {
+  const now = Date.now();
+  
+  if (!categoriesCache || !brandsCache || !cacheTimestamp || (now - cacheTimestamp) > CACHE_DURATION) {
+    const [categories, brands] = await Promise.all([
+      prisma.category.findMany({
+        select: { id: true, name: true, _count: { select: { products: true } } },
+        where: { products: { some: {} } } // Only categories with products
+      }),
+      prisma.brand.findMany({
+        select: { id: true, name: true, _count: { select: { products: true } } },
+        where: { products: { some: {} } } // Only brands with products
+      })
+    ]);
+    
+    categoriesCache = categories;
+    brandsCache = brands;
+    cacheTimestamp = now;
   }
-];
+  
+  return { categories: categoriesCache, brands: brandsCache };
+}
 
 export async function GET(request) {
-  // First check if database is available with fast timeout
-  const isDatabaseAvailable = await testDatabaseConnection();
-  
-  if (!isDatabaseAvailable) {
-    // Return mock data immediately if database is unavailable
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
-    const skip = (page - 1) * limit;
-    
-    const paginatedProducts = mockProducts.slice(skip, skip + limit);
-    
-    return NextResponse.json({
-      products: paginatedProducts,
-      total: mockProducts.length,
-      page,
-      limit,
-      totalPages: Math.ceil(mockProducts.length / limit)
-    });
-  }
-
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const brand = searchParams.get('brand');
+    const search = searchParams.get('search');
     const minPrice = searchParams.get('minPrice');
     const maxPrice = searchParams.get('maxPrice');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
+    const limit = parseInt(searchParams.get('limit')) || 20; // Reduced default limit
+    const page = parseInt(searchParams.get('page')) || 1;
+    const includeMetadata = searchParams.get('includeMetadata') === 'true';
     const skip = (page - 1) * limit;
 
+    // Build optimized where clause
     const where = {};
-    
-    if (category) {
-      where.category = {
-        name: {
-          equals: category,
-          mode: 'insensitive'
-        }
-      };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { brand: { name: { contains: search, mode: 'insensitive' } } },
+        { category: { name: { contains: search, mode: 'insensitive' } } }
+      ];
     }
-    
+
+    if (category) {
+      where.categoryId = category; // Use ID instead of nested query for better performance
+    }
+
     if (brand) {
-      where.brand = {
-        name: {
-          equals: brand,
-          mode: 'insensitive'
+      where.brandId = brand; // Use ID instead of nested query for better performance
+    }
+
+    if (minPrice || maxPrice) {
+      where.variants = {
+        some: {
+          price: {
+            ...(minPrice && { gte: parseFloat(minPrice) }),
+            ...(maxPrice && { lte: parseFloat(maxPrice) })
+          }
         }
       };
     }
 
-    const products = await prisma.product.findMany({
-      where,
-      include: {
-        category: true,
-        brand: true,
-        variants: {
-          include: {
-            inventoryLevels: {
-              include: {
-                location: true
-              }
-            }
-          }
-        },
-        images: true,
-        reviews: {
-          select: {
-            rating: true
-          }
+    // Optimize the query with selective field loading
+    const selectFields = {
+      id: true,
+      name: true,
+      description: true,
+      createdAt: true,
+      category: {
+        select: {
+          id: true,
+          name: true
         }
       },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit
-    });
+      brand: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      variants: {
+        select: {
+          id: true,
+          sku: true,
+          price: true,
+          compareAtPrice: true,
+          attributes: true
+        },
+        orderBy: {
+          price: 'asc'
+        },
+        take: 3 // Limit variants per product for faster loading
+      }
+    };
 
-    const total = await prisma.product.count({ where });
+    let products, totalProducts, metadata;
 
-    return NextResponse.json({
-      products,
+    try {
+      // Execute optimized queries in parallel
+      [products, totalProducts, metadata] = await Promise.all([
+        prisma.product.findMany({
+          where,
+          skip,
+          take: limit,
+          select: selectFields,
+          orderBy: [
+            { createdAt: 'desc' }
+          ]
+        }),
+        // Use count only when needed for pagination
+        limit < 100 ? prisma.product.count({ where }) : Promise.resolve(null),
+        // Include metadata only when requested
+        includeMetadata ? getCachedMetadata() : Promise.resolve(null)
+      ]);
+    } catch (dbError) {
+      console.error('❌ Database connection failed:', dbError.message);
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Database connection failed. Please check MongoDB connection.',
+          details: dbError.message 
+        },
+        { status: 503 }
+      );
+    }
+
+    // Calculate estimated total for large datasets (performance optimization)
+    const estimatedTotal = totalProducts || (products.length === limit ? (page * limit) + 1 : page * limit);
+
+    const response = {
+      success: true,
+      data: products,
       pagination: {
+        total: totalProducts || estimatedTotal,
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        totalPages: totalProducts ? Math.ceil(totalProducts / limit) : Math.ceil(estimatedTotal / limit),
+        hasMore: products.length === limit,
+        isEstimated: !totalProducts
+      },
+      message: `Found ${products.length} products`,
+      timestamp: Date.now()
+    };
+
+    // Include metadata in response if requested
+    if (metadata) {
+      response.metadata = metadata;
+    }
+
+    console.log(`✅ Fetched ${products.length} products (page ${page}, limit ${limit})`);
+
+    // Set cache headers for better performance
+    return new NextResponse(JSON.stringify(response), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': search || category || brand ? 'private, max-age=60' : 'public, max-age=300', // 5 min cache for filtered results, 1 min for search
+        'ETag': `"${Date.now()}"` // Simple ETag for caching
       }
     });
+
   } catch (error) {
     console.error('Error fetching products:', error);
-    
-    // Return mock data when database query fails
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
-    const skip = (page - 1) * limit;
-    
-    const paginatedProducts = mockProducts.slice(skip, skip + limit);
-    
-    return NextResponse.json({
-      products: paginatedProducts,
-      total: mockProducts.length,
-      page,
-      limit,
-      totalPages: Math.ceil(mockProducts.length / limit)
-    });
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch products: ' + error.message },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request) {
-  console.log('POST /api/products called');
-  
   try {
     const data = await request.json();
-    console.log('Received data:', data);
+    console.log('📦 Creating new product with data:', data);
 
-    // Validate required fields
-    if (!data.name || !data.description || !data.categoryId || !data.brandId) {
-      console.log('Validation failed');
+    // Validate required fields (accept either name-based or ID-based data)
+    if (!data.name) {
       return NextResponse.json(
-        { 
-          error: 'Missing required fields',
-          details: 'Name, description, categoryId, and brandId are required'
-        },
+        { success: false, error: 'Missing required field: name' },
         { status: 400 }
       );
     }
 
-    // Temporarily return success without database operations
-    console.log('Returning mock success response');
+    // Handle both category/brand names and IDs
+    let categoryId = data.categoryId;
+    let brandId = data.brandId;
     
-    // Generate a highly unique ID for the mock product
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 15);
-    const additional = Math.random().toString(36).substring(2, 15);
-    const uniqueId = `mock-${timestamp}-${randomStr}-${additional}`;
-    
-    return NextResponse.json({
-      id: uniqueId,
-      name: data.name,
-      description: data.description,
-      categoryId: data.categoryId,
-      brandId: data.brandId,
-      category: { id: data.categoryId, name: data.categoryId },
-      brand: { id: data.brandId, name: data.brandId },
-      status: "In Stock",
-      totalStock: data.variants?.[0]?.stock || 0,
-      variants: data.variants || [],
-      image: "/api/placeholder/400/400",
-      images: [{ url: "/api/placeholder/400/400" }],
-      rating: 0,
-      reviews: 0,
-      inStock: true,
-      message: "Mock product created successfully"
-    }, { status: 201 });
-
-    // Commented out database operations for testing
-    /*
-
-    // Check if category and brand exist, create them if they don't (for mock data compatibility)
-    let category = await prisma.category.findUnique({
-      where: { id: data.categoryId }
-    });
-
-    if (!category) {
-      // Try to find by name in case it's a string ID like "cpu"
-      category = await prisma.category.findFirst({
-        where: { name: data.categoryId }
-      });
-
-      if (!category) {
-        // Create category if it doesn't exist
-        try {
-          category = await prisma.category.create({
-            data: {
-              name: data.categoryId.charAt(0).toUpperCase() + data.categoryId.slice(1)
-            }
-          });
-        } catch (error) {
-          return NextResponse.json(
-            { 
-              error: 'Invalid category',
-              details: 'Category not found and could not be created'
-            },
-            { status: 400 }
-          );
+    // If we have category/brand names but no IDs, find or create them
+    if (!categoryId && data.category) {
+      const category = await prisma.category.upsert({
+        where: { name: data.category },
+        update: {},
+        create: { 
+          name: data.category,
+          slug: data.category.toLowerCase().replace(/\s+/g, '-')
         }
-      }
+      });
+      categoryId = category.id;
+    }
+    
+    if (!brandId && data.brand) {
+      const brand = await prisma.brand.upsert({
+        where: { name: data.brand },
+        update: {},
+        create: { 
+          name: data.brand,
+          slug: data.brand.toLowerCase().replace(/\s+/g, '-')
+        }
+      });
+      brandId = brand.id;
     }
 
-    let brand = await prisma.brand.findUnique({
-      where: { id: data.brandId }
-    });
-
-    if (!brand) {
-      // Try to find by name in case it's a string ID like "intel"
-      brand = await prisma.brand.findFirst({
-        where: { name: data.brandId }
-      });
-
-      if (!brand) {
-        // Create brand if it doesn't exist
-        try {
-          brand = await prisma.brand.create({
-            data: {
-              name: data.brandId.charAt(0).toUpperCase() + data.brandId.slice(1)
-            }
-          });
-        } catch (error) {
-          return NextResponse.json(
-            { 
-              error: 'Invalid brand',
-              details: 'Brand not found and could not be created'
-            },
-            { status: 400 }
-          );
-        }
-      }
+    if (!categoryId || !brandId) {
+      return NextResponse.json(
+        { success: false, error: 'Category and brand are required' },
+        { status: 400 }
+      );
     }
 
+    // Create product in MongoDB
     const product = await prisma.product.create({
       data: {
         name: data.name,
-        description: data.description,
-        categoryId: category.id,
-        brandId: brand.id,
-        images: data.images || [],
-        tags: data.tags || [],
+        description: data.description || '',
+        categoryId: categoryId,
+        brandId: brandId,
         variants: {
-          create: data.variants?.map(variant => ({
-            sku: variant.sku || `${data.name.replace(/\s+/g, '-').toUpperCase()}-001`,
+          create: (data.variants || []).map(variant => ({
+            sku: variant.sku,
             price: variant.price,
+            compareAtPrice: variant.compareAtPrice || null,
             attributes: variant.attributes || {}
-          })) || []
+          }))
         }
       },
       include: {
@@ -407,34 +256,259 @@ export async function POST(request) {
       }
     });
 
-    return NextResponse.json(product, { status: 201 });
-  } catch (error) {
-    console.error('Error creating product:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      details: error
+    console.log('✅ Product created successfully in MongoDB:');
+    console.log(`   ID: ${product.id}`);
+    console.log(`   Name: ${product.name}`);
+    console.log(`   Category: ${product.category.name}`);
+    console.log(`   Brand: ${product.brand.name}`);
+    console.log(`   Variants: ${product.variants.length}`);
+
+    return NextResponse.json({
+      success: true,
+      data: product,
+      message: 'Product created successfully in MongoDB database!'
     });
+
+  } catch (error) {
+    console.error('❌ Error creating product in MongoDB:', error);
+    
+    // More detailed error handling
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { success: false, error: 'Invalid category or brand ID provided' },
+        { status: 400 }
+      );
+    }
+    
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { success: false, error: 'Product with this name or SKU already exists' },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
-      { 
-        error: 'Failed to create product',
-        details: error.message || 'Unknown error occurred'
-      },
+      { success: false, error: 'Failed to create product: ' + error.message },
       { status: 500 }
     );
-    */
+  }
+}
+
+export async function PUT(request) {
+  try {
+    const data = await request.json();
+    const { id, ...updateData } = data;
+    console.log('📝 Updating product in MongoDB:', { id, updateData });
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Product ID is required for update' },
+        { status: 400 }
+      );
+    }
+
+    // Validate MongoDB ObjectID format
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      console.log('❌ Invalid ObjectID format for update:', id);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Invalid product ID format',
+          code: 'INVALID_ID_FORMAT'
+        },
+        { status: 400 }
+      );
+    }
+
+    try {
+      // Build the update data object
+      const productUpdate = {
+        name: updateData.name,
+        description: updateData.description,
+        updatedAt: new Date()
+      };
+
+      // Handle category connection/creation
+      if (updateData.category) {
+        productUpdate.category = {
+          connectOrCreate: {
+            where: { name: updateData.category },
+            create: { name: updateData.category }
+          }
+        };
+      }
+
+      // Handle brand connection/creation
+      if (updateData.brand) {
+        productUpdate.brand = {
+          connectOrCreate: {
+            where: { name: updateData.brand },
+            create: { name: updateData.brand }
+          }
+        };
+      }
+
+      // Handle variants update (price, stock, imageUrl)
+      if (updateData.price !== undefined || updateData.stock !== undefined || updateData.imageUrl !== undefined) {
+        const variantUpdateData = {};
+        if (updateData.price !== undefined) {
+          variantUpdateData.price = parseFloat(updateData.price) || 0;
+        }
+        if (updateData.stock !== undefined || updateData.imageUrl !== undefined) {
+          const attributes = {};
+          if (updateData.stock !== undefined) {
+            attributes.stock = parseInt(updateData.stock) || 0;
+          }
+          if (updateData.imageUrl !== undefined) {
+            attributes.imageUrl = updateData.imageUrl;
+          }
+          variantUpdateData.attributes = attributes;
+        }
+
+        productUpdate.variants = {
+          updateMany: {
+            where: { productId: id },
+            data: variantUpdateData
+          }
+        };
+      }
+
+      // Try updating in MongoDB first
+      const updatedProduct = await prisma.product.update({
+        where: { id },
+        data: productUpdate,
+        include: {
+          category: true,
+          brand: true,
+          variants: true
+        }
+      });
+
+      console.log('✅ Product updated successfully in MongoDB');
+      return NextResponse.json({
+        success: true,
+        data: updatedProduct,
+        message: 'Product updated successfully in database'
+      });
+
+    } catch (dbError) {
+      console.error('❌ MongoDB update failed:', dbError);
+      console.error('❌ Error details:', dbError.message);
+      
+      // Return the specific error instead of trying fallback
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Failed to update product: ${dbError.message}`,
+          details: dbError.code || 'Unknown error'
+        },
+        { status: 500 }
+      );
+    }
+
   } catch (error) {
-    console.error('Error creating product:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      details: error
-    });
+    console.error('❌ Error updating product:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to create product',
-        details: error.message || 'Unknown error occurred'
-      },
+      { success: false, error: 'Failed to update product: ' + error.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    console.log('🗑️ Deleting product from MongoDB:', id);
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Product ID is required for deletion' },
+        { status: 400 }
+      );
+    }
+
+    // Validate MongoDB ObjectID format
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      console.log('❌ Invalid ObjectID format:', id);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Invalid product ID format',
+          code: 'INVALID_ID_FORMAT'
+        },
+        { status: 400 }
+      );
+    }
+
+    try {
+      // First check if the product exists
+      const existingProduct = await prisma.product.findUnique({
+        where: { id },
+        include: {
+          variants: true
+        }
+      });
+
+      if (!existingProduct) {
+        console.log('❌ Product not found for deletion:', id);
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Product not found. It may have already been deleted.',
+            code: 'PRODUCT_NOT_FOUND'
+          },
+          { status: 404 }
+        );
+      }
+
+      console.log('🗑️ Found product to delete:', existingProduct.name);
+      console.log('🗑️ Product has variants:', existingProduct.variants?.length || 0);
+
+      // Delete variants first, then delete the product (cascade deletion)
+      if (existingProduct.variants && existingProduct.variants.length > 0) {
+        console.log('🗑️ Deleting product variants first...');
+        const deletedVariants = await prisma.productVariant.deleteMany({
+          where: { productId: id }
+        });
+        console.log(`🗑️ Deleted ${deletedVariants.count} variants`);
+      }
+      
+      console.log('🗑️ Deleting product...');
+      const deletedProduct = await prisma.product.delete({
+        where: { id },
+        include: {
+          category: true,
+          brand: true
+        }
+      });
+
+      console.log('✅ Product and variants deleted successfully from MongoDB');
+      return NextResponse.json({
+        success: true,
+        data: deletedProduct,
+        message: 'Product deleted successfully from database'
+      });
+
+    } catch (dbError) {
+      console.error('❌ MongoDB deletion failed:', dbError);
+      console.error('❌ Error details:', dbError.message);
+      
+      // Return the specific error instead of trying fallback
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Failed to delete product: ${dbError.message}`,
+          details: dbError.code || 'Unknown error'
+        },
+        { status: 500 }
+      );
+    }
+
+  } catch (error) {
+    console.error('❌ Error deleting product:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete product: ' + error.message },
       { status: 500 }
     );
   }
