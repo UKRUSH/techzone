@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -571,8 +569,7 @@ export default function PCBuilderPage() {
   if (loading) {
     return (
       <>
-        <Header />
-        <div className="min-h-screen relative overflow-hidden">
+        <div className="min-h-screen relative overflow-hidden pt-32">{/* Added pt-32 for header space */}
           {/* Enhanced background with advanced patterns and animations - matching products page */}
           <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-yellow-950/20 z-0"></div>
           
@@ -596,15 +593,13 @@ export default function PCBuilderPage() {
             </div>
           </div>
         </div>
-        <Footer />
       </>
     );
   }
 
   return (
     <>
-      <Header />
-      <div className="min-h-screen relative overflow-hidden">
+      <div className="min-h-screen relative overflow-hidden pt-32">{/* Added pt-32 for header space */}
         {/* Enhanced background with advanced patterns and animations - matching products page */}
         <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-yellow-950/20 z-0"></div>
         
@@ -1467,8 +1462,6 @@ export default function PCBuilderPage() {
           )}
         </div>
       </div>
-
-      <Footer />
     </>
   );
 }

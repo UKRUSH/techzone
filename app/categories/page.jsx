@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useMemo, memo, useEffect } from "react";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -118,14 +116,12 @@ export default function CategoriesPage() {
   if (loading) {
     return (
       <>
-        <Header />
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="min-h-screen flex items-center justify-center pt-32">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
             <p className="text-muted-foreground">Loading categories...</p>
           </div>
         </div>
-        <Footer />
       </>
     );
   }
@@ -133,8 +129,7 @@ export default function CategoriesPage() {
   if (error) {
     return (
       <>
-        <Header />
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="min-h-screen flex items-center justify-center pt-32">
           <div className="flex flex-col items-center gap-4">
             <XCircle className="h-8 w-8 text-red-500" />
             <p className="text-red-500">Error loading categories: {error}</p>
@@ -143,15 +138,13 @@ export default function CategoriesPage() {
             </Button>
           </div>
         </div>
-        <Footer />
       </>
     );
   }
 
   return (
     <>
-      <Header />
-      <div className="min-h-screen relative overflow-hidden">
+      <div className="min-h-screen relative overflow-hidden pt-32">{/* Added pt-32 for header space */}
         {/* Database Status Indicator */}
         <div className="fixed top-4 right-4 z-50 bg-green-500/10 border border-green-500/30 rounded-full px-4 py-2 backdrop-blur-sm">
           <div className="flex items-center gap-2">
@@ -481,7 +474,6 @@ export default function CategoriesPage() {
           </motion.div>
         </div>
       </div>
-      <Footer />
     </>
   );
 }

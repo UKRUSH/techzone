@@ -1,7 +1,5 @@
 "use client";
 
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -131,9 +129,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <Header />
-      
+    <div className="min-h-screen bg-black text-white pt-32">
       {/* Instant Loading Indicator */}
       <div className="fixed top-4 right-4 z-50 bg-green-500/20 text-green-400 border border-green-400/30 px-3 py-2 rounded-lg text-sm font-medium">
         <Zap className="w-4 h-4 inline mr-2" />
@@ -388,8 +384,6 @@ export default function HomePage() {
           </MemoizedMotion>
         </div>
       </section>
-
-      <Footer />
     </div>
   );
 }

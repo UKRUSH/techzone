@@ -1,34 +1,9 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
 
-// Mock user storage for development
-const initialMockUsers = [
-  {
-    id: "1",
-    name: "Admin User",
-    email: "admin@techzone.com",
-    password: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj0/nqkOixmu", // admin123
-    role: "ADMIN",
-    createdAt: new Date()
-  },
-  {
-    id: "2", 
-    name: "Test User",
-    email: "user@techzone.com",
-    password: "$2a$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // test123
-    role: "BUYER",
-    createdAt: new Date()
-  }
-];
-
-// Function to get all users
-function getAllUsers() {
-  if (!global.mockUsers) {
-    global.mockUsers = [...initialMockUsers];
-  }
-  return global.mockUsers;
-}
+const prisma = new PrismaClient();
 
 export const authOptions = {
   providers: [
@@ -44,8 +19,12 @@ export const authOptions = {
         }
 
         try {
-          const users = getAllUsers();
-          const user = users.find(u => u.email === credentials.email);
+          // Find user in database
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email
+            }
+          });
 
           if (!user) {
             return null;
@@ -69,6 +48,8 @@ export const authOptions = {
         } catch (error) {
           console.error("Auth error:", error);
           return null;
+        } finally {
+          await prisma.$disconnect();
         }
       }
     })

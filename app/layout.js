@@ -8,6 +8,8 @@ import { PageStateProvider } from "@/components/providers/PageStateProvider";
 import { InstantDataProvider } from "@/components/providers/InstantDataProvider";
 import { ToastContainer } from "@/components/ui/toast";
 import { NavigationProgress, RoutePrefetcher } from "@/components/navigation/FastNavigation";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,7 +59,11 @@ export default function RootLayout({ children }) {
                   <CartProvider>
                     <NavigationProgress />
                     <RoutePrefetcher />
-                    {children}
+                    <Header />
+                    <main className="min-h-screen">
+                      {children}
+                    </main>
+                    <Footer />
                     <ToastContainer />
                   </CartProvider>
                 </LoadingProvider>

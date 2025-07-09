@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -189,7 +187,6 @@ export default function CartPage() {
             </div>
           </div>
         </div>
-        <Footer />
       </>
     );
   }
@@ -200,8 +197,7 @@ export default function CartPage() {
 
   return (
     <>
-      <Header />
-      <div className="min-h-screen relative overflow-hidden">
+      <div className="min-h-screen relative overflow-hidden pt-32">{/* Added pt-32 for header space */}
         {/* Premium Black Background with Yellow Accents */}
         <div className="absolute inset-0 bg-black" />
         
@@ -706,7 +702,6 @@ export default function CartPage() {
           </AnimatePresence>
         </div>
       </div>
-      <Footer />
     </>
   );
 }

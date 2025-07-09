@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,27 +72,26 @@ export default function DealsPage() {
   });
 
   // Get unique categories for filter
-  const categories = ["all", ...new Set(deals.map(deal => deal.category))];
+  const categories = ["all", ...new Set(deals.map(deal => 
+    typeof deal.category === 'object' ? deal.category?.name || deal.category?.slug : deal.category
+  ).filter(Boolean))];
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900">
-        <Header />
+      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 pt-32">
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <Loader2 className="h-12 w-12 animate-spin text-yellow-400 mx-auto mb-4" />
             <p className="text-white/70">Loading deals...</p>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900">
-        <Header />
+      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 pt-32">
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <XCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
@@ -108,14 +105,12 @@ export default function DealsPage() {
             </Button>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900">
-      <Header />
+    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 pt-32">
       
       {/* Hero Section */}
       <section className="pt-8 pb-16 relative overflow-hidden">
@@ -169,7 +164,11 @@ export default function DealsPage() {
             >
               {categories.map(category => (
                 <option key={category} value={category}>
-                  {category === "all" ? "All Categories" : category.charAt(0).toUpperCase() + category.slice(1)}
+                  {category === "all" ? "All Categories" : 
+                    typeof category === 'string' ? 
+                      category.charAt(0).toUpperCase() + category.slice(1) :
+                      (category?.name || category?.slug || 'Unknown Category')
+                  }
                 </option>
               ))}
             </select>
@@ -269,8 +268,6 @@ export default function DealsPage() {
           </motion.div>
         </div>
       </section>
-
-      <Footer />
     </div>
   );
 }

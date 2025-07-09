@@ -385,8 +385,7 @@ export default function ProductsPage() {
   }, [compareProducts]);
 
   return (
-    <>
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-black via-gray-900 to-black pt-32">{/* Added pt-32 for header space */}
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-black via-gray-900 to-black pt-52">
         {/* Premium 60% Black / 40% Yellow Background Effects */}
         {mounted && (
           <div className="absolute inset-0 overflow-hidden">
@@ -932,10 +931,9 @@ export default function ProductsPage() {
             )}
           </div>
         </div>
-      </div>
-      
-      {/* Simplified Quick View Modal */}
-      <Dialog open={showQuickView} onOpenChange={setShowQuickView}>
+
+        {/* Simplified Quick View Modal */}
+        <Dialog open={showQuickView} onOpenChange={setShowQuickView}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-black/95 backdrop-blur-2xl border-0 text-white rounded-3xl shadow-2xl p-0">
           <DialogHeader className="sr-only">
             <DialogTitle>Product Quick View</DialogTitle>
@@ -1206,6 +1204,6 @@ export default function ProductsPage() {
           </Button>
         </motion.div>
       )}
-    </>
+    </div>
   );
 }
