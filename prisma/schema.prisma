@@ -19,6 +19,8 @@ model User {
   image         String?
   password      String // Hashed password
   role          UserRole  @default(BUYER)
+  phone         String?   // Add phone field
+  address       String?   // Add simple address field
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

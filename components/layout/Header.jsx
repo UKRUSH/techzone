@@ -2,18 +2,25 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { ShoppingCart, Search, User, Menu, X, Cpu, Monitor, HardDrive, Bell, ChevronDown, Zap } from "lucide-react";
+import { ShoppingCart, Search, User, Menu, X, Cpu, Monitor, HardDrive, Bell, ChevronDown, Zap, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/components/providers/CartProvider";
 import { FastLink } from "@/components/navigation/FastNavigation";
+import { useSession, signOut } from "next-auth/react";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { cartItemCount } = useCart();
+  const { data: session, status } = useSession();
+
+  // Debug info (remove in production)
+  useEffect(() => {
+    console.log("Header - Auth Status:", { status, session: session?.user });
+  }, [status, session]);
 
   const navigation = [
     { name: "Products", href: "/products" },
@@ -282,37 +289,55 @@ export function Header() {
                       transition={{ duration: 0.2 }}
                       className="absolute right-0 mt-3 w-64 bg-black/95 border-2 border-yellow-400/30 rounded-xl shadow-xl shadow-yellow-400/20 z-50 backdrop-blur-lg"
                     >
-                      <div className="p-4 bg-gradient-to-r from-yellow-400/10 to-yellow-400/5">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 to-yellow-300 rounded-full flex items-center justify-center">
-                            <User className="w-5 h-5 text-black" />
+                      {session ? (
+                        <>
+                          <div className="p-4 bg-gradient-to-r from-yellow-400/10 to-yellow-400/5">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 to-yellow-300 rounded-full flex items-center justify-center">
+                                <User className="w-5 h-5 text-black" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-white">{session.user.name || 'User'}</p>
+                                <p className="text-xs text-yellow-400/80">{session.user.email}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-semibold text-white">John Doe</p>
-                            <p className="text-xs text-yellow-400/80">Premium Member</p>
+                          <div className="py-2">
+                            <Link href="/profile" className="flex items-center space-x-3 px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all">
+                              <User className="w-4 h-4" />
+                              <span>Your Profile</span>
+                            </Link>
+                            <Link href="/orders" className="flex items-center space-x-3 px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all">
+                              <ShoppingCart className="w-4 h-4" />
+                              <span>Order History</span>
+                            </Link>
+                            <Link href="/settings" className="flex items-center space-x-3 px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all">
+                              <Cpu className="w-4 h-4" />
+                              <span>Account Settings</span>
+                            </Link>
+                            <div className="border-t border-yellow-400/20 mt-2 pt-2">
+                              <button 
+                                onClick={() => signOut()}
+                                className="flex items-center space-x-3 w-full px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all"
+                              >
+                                <LogOut className="w-4 h-4" />
+                                <span>Sign Out</span>
+                              </button>
+                            </div>
                           </div>
+                        </>
+                      ) : (
+                        <div className="py-2">
+                          <Link href="/auth/signin" className="flex items-center space-x-3 px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all">
+                            <LogIn className="w-4 h-4" />
+                            <span>Sign In</span>
+                          </Link>
+                          <Link href="/auth/signup" className="flex items-center space-x-3 px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all">
+                            <User className="w-4 h-4" />
+                            <span>Create Account</span>
+                          </Link>
                         </div>
-                      </div>
-                      <div className="py-2">
-                        <Link href="/profile" className="flex items-center space-x-3 px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all">
-                          <User className="w-4 h-4" />
-                          <span>Your Profile</span>
-                        </Link>
-                        <Link href="/orders" className="flex items-center space-x-3 px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all">
-                          <ShoppingCart className="w-4 h-4" />
-                          <span>Order History</span>
-                        </Link>
-                        <Link href="/settings" className="flex items-center space-x-3 px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all">
-                          <Cpu className="w-4 h-4" />
-                          <span>Account Settings</span>
-                        </Link>
-                        <div className="border-t border-yellow-400/20 mt-2 pt-2">
-                          <button className="flex items-center space-x-3 w-full px-4 py-3 text-sm text-white hover:bg-yellow-400/10 hover:text-yellow-400 transition-all">
-                            <X className="w-4 h-4" />
-                            <span>Sign Out</span>
-                          </button>
-                        </div>
-                      </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

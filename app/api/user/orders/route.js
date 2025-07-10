@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+// Use singleton pattern for Prisma client
+const globalForPrisma = globalThis;
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export async function GET(request) {
   try {
@@ -87,6 +90,7 @@ export async function GET(request) {
       shipping: order.shipping,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      date: order.createdAt, // Add date field that UI expects
       customerInfo: {
         name: order.customerName,
         email: order.customerEmail,
@@ -102,11 +106,19 @@ export async function GET(request) {
       },
       payment: {
         method: order.paymentMethod,
+        amount: order.total, // Add amount field that UI expects
         details: order.paymentDetails
+      },
+      shipping: {
+        address: order.shippingAddress ? `${order.shippingAddress}, ${order.shippingCity}, ${order.shippingCountry}` : 'No address',
+        method: 'Standard Shipping',
+        trackingNumber: order.delivery?.trackingNumber,
+        estimatedDelivery: null
       },
       items: order.orderItems.map(item => ({
         id: item.id,
         productId: item.productId,
+        name: item.productName, // UI expects 'name' field
         productName: item.productName,
         quantity: item.quantity,
         price: item.price,
@@ -142,7 +154,5 @@ export async function GET(request) {
       { error: "Failed to fetch orders" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

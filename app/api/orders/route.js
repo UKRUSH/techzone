@@ -1,13 +1,34 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     const data = await request.json();
 
-    console.log('Creating order with user data:', JSON.stringify(data, null, 2));
+    console.log('🔐 Session info:', session);
+    console.log('📝 Creating order with data:', JSON.stringify(data, null, 2));
+
+    // Get user ID from session if authenticated
+    let userId = null;
+    if (session?.user?.id) {
+      userId = session.user.id;
+      console.log('✅ Authenticated user ID:', userId);
+    } else if (session?.user?.email) {
+      // If we have email but no ID, find user in database
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      });
+      if (user) {
+        userId = user.id;
+        console.log('✅ Found user ID from email:', userId);
+      }
+    } else {
+      console.log('❌ No authenticated user - creating guest order');
+    }
 
     // Validate required fields
     if (!data.customerInfo || !data.shippingAddress || !data.items || !data.total) {
@@ -35,7 +56,7 @@ export async function POST(request) {
         
         // Payment information from user
         paymentMethod: data.paymentMethod,
-        paymentStatus: 'PENDING',
+        paymentDetails: data.paymentDetails || {},
         
         // Order totals from cart
         subtotal: parseFloat(data.subtotal),
@@ -47,7 +68,7 @@ export async function POST(request) {
         status: 'PENDING',
         
         // Connect to user if authenticated
-        userId: session?.user?.id || null,
+        userId: userId,
         
         // Order items from user's cart
         orderItems: {
@@ -55,8 +76,13 @@ export async function POST(request) {
             quantity: item.quantity,
             price: item.variant?.price || 0,
             productName: item.variant?.product?.name || 'Unknown Product',
-            productId: item.variant?.product?.id || null,
-            variantId: item.variant?.id || null
+            // Handle invalid ObjectIds by setting to null
+            productId: (item.variant?.product?.id && item.variant?.product?.id.length === 24) 
+              ? item.variant.product.id 
+              : null,
+            variantId: (item.variant?.id && item.variant?.id.length === 24) 
+              ? item.variant.id 
+              : null
           }))
         }
       },
@@ -67,6 +93,7 @@ export async function POST(request) {
 
     console.log('✅ Order created successfully in MongoDB:');
     console.log(`   ID: ${order.id}`);
+    console.log(`   User ID: ${order.userId || 'NULL (Guest Order)'}`);
     console.log(`   Customer: ${order.customerName}`);
     console.log(`   Email: ${order.customerEmail}`);
     console.log(`   Phone: ${order.customerPhone}`);

@@ -86,12 +86,28 @@ export default function OrdersPage() {
     }
   };
 
-  // Loading state
-  if (status === 'loading' || (isLoading && !orders.length)) {
+  // Loading state - show loading only when session is loading
+  if (status === 'loading') {
     return (
       <>
         <Header />
-        <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="min-h-screen bg-black flex items-center justify-center page-with-header">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-yellow-400 mx-auto mb-4" />
+            <p className="text-white">Loading your session...</p>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
+  // Orders loading state - only for authenticated users
+  if (isAuthenticated && isLoading && !orders.length) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-black flex items-center justify-center page-with-header">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-yellow-400 mx-auto mb-4" />
             <p className="text-white">Loading your orders...</p>
@@ -107,8 +123,8 @@ export default function OrdersPage() {
     return (
       <>
         <Header />
-        <div className="min-h-screen bg-black flex items-center justify-center">
-          <div className="text-center max-w-md">
+        <div className="min-h-screen bg-black flex items-center justify-center page-with-header">
+          <div className="text-center max-w-md mx-auto px-4">
             <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-white mb-2">
               {error ? "Error Loading Orders" : "Authentication Required"}
@@ -133,10 +149,10 @@ export default function OrdersPage() {
     return (
       <>
         <Header />
-        <div className="min-h-screen bg-black relative">
+        <div className="min-h-screen bg-black relative page-with-header">
           <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-black"></div>
           
-          <div className="container mx-auto px-4 py-8 relative z-10">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 max-w-7xl">
             {/* Back Button */}
             <Button
               onClick={() => setSelectedOrder(null)}
@@ -151,24 +167,24 @@ export default function OrdersPage() {
             <div className="space-y-6">
               {/* Order Header */}
               <Card className="bg-black/80 border border-yellow-400/30">
-                <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl font-bold text-white mb-2">
+                      <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
                         Order #{selectedOrder.orderNumber}
                       </h1>
-                      <div className="flex items-center gap-4 text-sm text-gray-400">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-400">
                         <span>Placed on {new Date(selectedOrder.date).toLocaleDateString()}</span>
-                        <span>•</span>
+                        <span className="hidden sm:inline">•</span>
                         <span>${selectedOrder.total.toFixed(2)}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <Badge className={`${getStatusColor(selectedOrder.status)} border font-medium`}>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      <Badge className={`${getStatusColor(selectedOrder.status)} border font-medium w-fit`}>
                         {getStatusIcon(selectedOrder.status)}
                         <span className="ml-2 capitalize">{selectedOrder.status}</span>
                       </Badge>
-                      <Button variant="outline" className="border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/10">
+                      <Button variant="outline" className="border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/10 w-full sm:w-auto">
                         <Download className="w-4 h-4 mr-2" />
                         Invoice
                       </Button>
@@ -307,10 +323,10 @@ export default function OrdersPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-black relative">
+      <div className="min-h-screen bg-black relative page-with-header">
         <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-black"></div>
         
-        <div className="container mx-auto px-4 py-8 relative z-10">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 max-w-7xl">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -319,8 +335,8 @@ export default function OrdersPage() {
           >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Your Orders</h1>
-                <p className="text-gray-400">Track and manage your purchases</p>
+                <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Your Orders</h1>
+                <p className="text-gray-400 text-lg">Track and manage your purchases</p>
               </div>
               <div className="flex items-center gap-4">
                 <Link href="/profile">
@@ -334,8 +350,8 @@ export default function OrdersPage() {
 
             {/* Filters */}
             <Card className="bg-black/80 border border-yellow-400/30">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row gap-4">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row gap-4">
                   {/* Search */}
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-yellow-400/70 w-4 h-4" />
@@ -343,22 +359,24 @@ export default function OrdersPage() {
                       placeholder="Search orders..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-black/60 border-yellow-400/30 text-white"
+                      className="pl-10 bg-black/60 border-yellow-400/30 text-white placeholder:text-gray-500"
                     />
                   </div>
 
                   {/* Status Filter */}
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="bg-black/70 border border-yellow-400/30 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-yellow-400/40"
-                  >
-                    <option value="all">All Orders</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                  <div className="sm:w-48">
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full bg-black/70 border border-yellow-400/30 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-yellow-400/40 focus:outline-none"
+                    >
+                      <option value="all">All Orders</option>
+                      <option value="processing">Processing</option>
+                      <option value="shipped">Shipped</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -366,9 +384,9 @@ export default function OrdersPage() {
 
           {/* Orders List */}
           <div className="space-y-4">
-            {filteredOrders.length === 0 ? (
+            {orders.length === 0 ? (
               <Card className="bg-black/80 border border-yellow-400/30">
-                <CardContent className="p-12 text-center">
+                <CardContent className="p-8 sm:p-12 text-center">
                   <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-white mb-2">No orders found</h3>
                   <p className="text-gray-400 mb-6">
@@ -384,7 +402,8 @@ export default function OrdersPage() {
                 </CardContent>
               </Card>
             ) : (
-              filteredOrders.map((order) => (
+              <>
+                {orders.map((order) => (
                 <motion.div
                   key={order.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -393,48 +412,54 @@ export default function OrdersPage() {
                   transition={{ duration: 0.2 }}
                 >
                   <Card className="bg-black/80 border border-yellow-400/30 hover:bg-black/90 transition-colors cursor-pointer">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-4 mb-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
                             <h3 className="text-lg font-semibold text-white">
                               Order #{order.orderNumber}
                             </h3>
-                            <Badge className={`${getStatusColor(order.status)} border font-medium`}>
+                            <Badge className={`${getStatusColor(order.status)} border font-medium w-fit`}>
                               {getStatusIcon(order.status)}
                               <span className="ml-2 capitalize">{order.status}</span>
                             </Badge>
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-400">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 text-sm text-gray-400 mb-3">
                             <div className="flex items-center">
-                              <Calendar className="w-4 h-4 mr-2 text-yellow-400" />
-                              {new Date(order.date).toLocaleDateString()}
+                              <Calendar className="w-4 h-4 mr-2 text-yellow-400 flex-shrink-0" />
+                              <span className="truncate">{new Date(order.date).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center">
-                              <Package className="w-4 h-4 mr-2 text-yellow-400" />
-                              {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                              <Package className="w-4 h-4 mr-2 text-yellow-400 flex-shrink-0" />
+                              <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
                             </div>
-                            <div className="flex items-center">
-                              <span className="text-yellow-400 font-semibold">
+                            <div className="flex items-center sm:col-span-2 lg:col-span-1">
+                              <span className="text-yellow-400 font-semibold text-base">
                                 ${order.total.toFixed(2)}
                               </span>
                             </div>
                           </div>
 
-                          <div className="mt-3">
+                          <div className="lg:hidden">
+                            <p className="text-sm text-gray-400 truncate sm:whitespace-normal sm:overflow-visible">
+                              {order.items.map(item => item.name).join(', ')}
+                            </p>
+                          </div>
+                          
+                          <div className="hidden lg:block">
                             <p className="text-sm text-gray-400">
                               {order.items.map(item => item.name).join(', ')}
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                           {order.shipping.trackingNumber && order.status !== 'cancelled' && (
                             <Button 
                               variant="outline" 
                               size="sm"
-                              className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                              className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 flex-1 sm:flex-none"
                             >
                               <Truck className="w-4 h-4 mr-2" />
                               Track
@@ -445,16 +470,17 @@ export default function OrdersPage() {
                             onClick={() => setSelectedOrder(order)}
                             variant="outline"
                             size="sm"
-                            className="border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/10"
+                            className="border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/10 flex-1 sm:flex-none"
                           >
                             <Eye className="w-4 h-4 mr-2" />
-                            View Details
+                            <span className="hidden sm:inline">View Details</span>
+                            <span className="sm:hidden">View</span>
                           </Button>
 
                           {order.status === 'delivered' && (
                             <Button 
                               size="sm"
-                              className="bg-yellow-400 hover:bg-yellow-300 text-black"
+                              className="bg-yellow-400 hover:bg-yellow-300 text-black flex-1 sm:flex-none"
                             >
                               Reorder
                             </Button>
@@ -464,7 +490,35 @@ export default function OrdersPage() {
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))
+                ))}
+                
+                {/* Pagination */}
+                {pagination && pagination.totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-4 mt-8 pt-6 border-t border-yellow-400/20">
+                    <Button
+                      variant="outline"
+                      disabled={!pagination.hasPrev}
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      className="border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/10 disabled:opacity-50"
+                    >
+                      Previous
+                    </Button>
+                    
+                    <span className="text-gray-400">
+                      Page {pagination.page} of {pagination.totalPages}
+                    </span>
+                    
+                    <Button
+                      variant="outline"
+                      disabled={!pagination.hasNext}
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      className="border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/10 disabled:opacity-50"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

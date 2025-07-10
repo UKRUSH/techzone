@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,6 +38,7 @@ import { useCart } from "@/components/providers/CartProvider";
 export default function CartPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { 
     items, 
     loading, 
@@ -48,6 +49,21 @@ export default function CartPage() {
     clearCart,
     fetchCart
   } = useCart();
+
+  // Get sessionId from URL if provided
+  const urlSessionId = searchParams.get('sessionId');
+  
+  // Debug: Log sessionId usage
+  useEffect(() => {
+    console.log('🔍 CART PAGE DEBUG:');
+    console.log('  - URL sessionId:', urlSessionId);
+    console.log('  - Session status:', status);
+    
+    if (urlSessionId) {
+      console.log('📍 URL sessionId detected, forcing cart refresh...');
+      fetchCart();
+    }
+  }, [urlSessionId, fetchCart]);
 
   // Animation variants
   const fadeIn = {
@@ -70,38 +86,73 @@ export default function CartPage() {
     }
   };
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin');
-    }
-  }, [status, router]);
+  // Don't redirect to login automatically - let guests view their cart
+  // They'll be prompted to register/login when they try to checkout
 
   const handleQuantityChange = async (itemId, newQuantity) => {
     if (newQuantity < 1) return;
     
-    console.log('Cart page: handleQuantityChange called with:', { itemId, newQuantity, itemIdType: typeof itemId });
-    console.log('Cart page: Current cart items:', items.map(item => ({ id: item.id, name: item.variant?.product?.name, quantity: item.quantity })));
+    console.log('🔧 DEBUG: handleQuantityChange called');
+    console.log('  - itemId:', itemId, '(type:', typeof itemId, ')');
+    console.log('  - newQuantity:', newQuantity);
+    console.log('  - urlSessionId:', urlSessionId);
+    console.log('  - Current cart items:', items.map(item => ({ 
+      id: item.id, 
+      name: item.variant?.product?.name, 
+      quantity: item.quantity 
+    })));
     
     try {
       const result = await updateCartItem(itemId, newQuantity);
-      console.log('Cart page: updateCartItem result:', result);
+      console.log('🔧 DEBUG: updateCartItem result:', result);
+      
       if (!result.success) {
-        // Show user-friendly error message
-        console.error('Failed to update cart item:', result.error);
+        console.error('❌ Failed to update cart item:', result.error);
         
-        // Try to refresh the cart to get the latest state
-        console.log('Cart page: Attempting to refresh cart due to update failure');
-        try {
-          await fetchCart();
-          alert(`Error: ${result.error || 'Failed to update item quantity'}. Cart has been refreshed.`);
-        } catch (refreshError) {
-          console.error('Cart page: Failed to refresh cart:', refreshError);
-          alert(`Error: ${result.error || 'Failed to update item quantity'}. Please refresh the page.`);
+        // Add more debugging
+        console.log('🔍 DEBUG: Item not found. Let me check what\'s in the backend...');
+        
+        // Check if this is a "Cart item not found" error
+        if (result.error && result.error.includes('Cart item not found')) {
+          console.log('🔄 Attempting automatic recovery...');
+          
+          // Try to refresh cart first
+          try {
+            await fetchCart();
+            console.log('✅ Cart refreshed. Current items after refresh:', items.length);
+            
+            // Check if the item exists after refresh
+            const refreshedItem = items.find(item => item.id === itemId);
+            if (refreshedItem) {
+              console.log('🔄 Item found after refresh, trying update again...');
+              // Retry the update once
+              const retryResult = await updateCartItem(itemId, newQuantity);
+              if (retryResult.success) {
+                console.log('✅ Update succeeded on retry');
+                return; // Success!
+              } else {
+                console.log('❌ Update failed on retry:', retryResult.error);
+              }
+            } else {
+              console.log('⚠️ Item no longer exists in cart after refresh');
+            }
+            
+            // Show user-friendly message
+            alert(`The item was not found in your cart. This may happen if the item was removed from another browser tab. Your cart has been refreshed.`);
+            
+          } catch (refreshError) {
+            console.error('❌ Failed to refresh cart:', refreshError);
+            alert(`Error: ${result.error || 'Failed to update item quantity'}. Please refresh the page.`);
+          }
+        } else {
+          // Other types of errors
+          alert(`Error: ${result.error || 'Failed to update item quantity'}. Please try again.`);
         }
+      } else {
+        console.log('✅ Cart item updated successfully');
       }
     } catch (error) {
-      console.error('Error updating cart item:', error);
+      console.error('❌ Error updating cart item:', error);
       alert('Error: Unable to update item quantity. Please try again.');
     }
   };
@@ -142,16 +193,34 @@ export default function CartPage() {
       return;
     }
     
-    // For now, navigate to a checkout page or show a message
-    // You can replace this with actual checkout logic
+    // If user is not authenticated, prompt them to register/sign in
+    if (status === 'unauthenticated') {
+      // Store current page as return URL
+      localStorage.setItem('returnUrl', '/cart');
+      
+      // Show a nice prompt to register
+      const userChoice = confirm(
+        'To proceed with checkout, you need to create an account or sign in. ' +
+        'Your cart will be saved! Would you like to register now? ' +
+        '(Click OK to Register, Cancel to Sign In)'
+      );
+      
+      if (userChoice) {
+        router.push('/auth/signup');
+      } else {
+        router.push('/auth/signin');
+      }
+      return;
+    }
+    
+    // Authenticated users can proceed to checkout
     router.push('/checkout');
   };
 
-  // Loading state with premium design
-  if (status === 'loading' || loading) {
+  // Loading state with premium design - Only show loading if cart is loading AND session isn't stuck
+  if (loading && (status === 'loading' || status === 'authenticated' || status === 'unauthenticated')) {
     return (
       <>
-        <Header />
         <div className="min-h-screen relative overflow-hidden">
           {/* Premium Loading Background */}
           <div className="absolute inset-0 bg-black" />

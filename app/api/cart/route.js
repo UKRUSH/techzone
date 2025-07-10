@@ -59,11 +59,18 @@ async function getVariantData(variantId) {
             brand: true,
             category: true
           }
-        }
+        },
+        inventoryLevels: true
       }
     });
     
     if (variant) {
+      // Calculate total stock
+      const totalStock = variant.inventoryLevels.reduce((total, inventory) => {
+        return total + (inventory.stock - inventory.reserved);
+      }, 0);
+      
+      variant.totalStock = Math.max(0, totalStock);
       return variant;
     }
   } catch (error) {
@@ -71,7 +78,7 @@ async function getVariantData(variantId) {
   }
   
   // Fallback to mock data or create minimal variant
-  return mockVariants[variantId] || {
+  const mockVariant = mockVariants[variantId] || {
     id: variantId,
     price: 0,
     product: { 
@@ -79,8 +86,11 @@ async function getVariantData(variantId) {
       category: { name: 'Unknown' }, 
       brand: { name: 'Unknown' },
       images: ['/placeholder-product.jpg']
-    }
+    },
+    totalStock: 0
   };
+  
+  return mockVariant;
 }
 
 export async function GET(request) {
@@ -106,7 +116,8 @@ export async function GET(request) {
                     category: true
                   }
                 },
-                images: true
+                images: true,
+                inventoryLevels: true
               }
             }
           }
@@ -124,7 +135,8 @@ export async function GET(request) {
                     category: true
                   }
                 },
-                images: true
+                images: true,
+                inventoryLevels: true
               }
             }
           }
@@ -148,6 +160,23 @@ export async function GET(request) {
     }
 
     console.log(`✅ Fetched ${cartItems.length} cart items from MongoDB`);
+
+    // Calculate total stock for each variant
+    cartItems = cartItems.map(item => {
+      if (item.variant && item.variant.inventoryLevels) {
+        // Calculate total available stock from all inventory levels
+        const totalStock = item.variant.inventoryLevels.reduce((total, inventory) => {
+          return total + (inventory.stock - inventory.reserved);
+        }, 0);
+        
+        // Add totalStock to the variant object
+        item.variant.totalStock = Math.max(0, totalStock);
+      } else {
+        // Fallback for variants without inventory data
+        item.variant.totalStock = item.variant.totalStock || 0;
+      }
+      return item;
+    });
 
     return NextResponse.json({
       success: true,
@@ -309,6 +338,9 @@ export async function PUT(request) {
     const data = await request.json();
     const { itemId, quantity, sessionId } = data;
 
+    console.log('🔧 PUT /api/cart - Request data:', { itemId, quantity, sessionId });
+    console.log('🔧 PUT /api/cart - Session:', session?.user?.id || 'No authenticated user');
+
     if (!itemId) {
       return NextResponse.json(
         { success: false, error: 'Missing required field: itemId' },
@@ -356,47 +388,108 @@ export async function PUT(request) {
       console.log('✅ Cart item quantity updated in MongoDB');
       
     } catch (dbError) {
-      console.log('Database unavailable, using fallback cart storage');
+      console.log('🔧 Database unavailable, using fallback cart storage');
+      console.log('🔧 dbError:', dbError.message);
+      
       // Use fallback mock cart
       const cartKey = session?.user?.id || sessionId || 'guest';
+      console.log('🔧 Cart key:', cartKey);
       
       if (!global.mockCarts[cartKey]) {
         global.mockCarts[cartKey] = [];
       }
 
+      console.log('🔧 Available cart keys:', Object.keys(global.mockCarts));
+      console.log('🔧 Current cart for key:', cartKey, 'has', global.mockCarts[cartKey].length, 'items');
+      console.log('🔧 Cart items:', global.mockCarts[cartKey].map(item => ({ id: item.id, variantId: item.variantId, quantity: item.quantity })));
+
       const itemIndex = global.mockCarts[cartKey].findIndex(item => item.id === itemId);
+      console.log('🔧 Looking for itemId:', itemId, 'found at index:', itemIndex);
       
       if (itemIndex === -1) {
-        return NextResponse.json(
-          { success: false, error: 'Cart item not found' },
-          { status: 404 }
-        );
-      }
-
-      if (quantity <= 0) {
-        // Remove item
-        global.mockCarts[cartKey].splice(itemIndex, 1);
-        return NextResponse.json({
-          success: true,
-          message: 'Item removed from cart'
+        // Log detailed debugging info when item not found
+        console.log('❌ Cart item not found!');
+        console.log('   - Requested itemId:', itemId, '(type:', typeof itemId, ')');
+        console.log('   - Available items:');
+        global.mockCarts[cartKey].forEach((item, index) => {
+          console.log(`     ${index}: id=${item.id} (type: ${typeof item.id}), variantId=${item.variantId}`);
         });
-      }
-
-      // Update quantity
-      global.mockCarts[cartKey][itemIndex].quantity = quantity;
-      const item = global.mockCarts[cartKey][itemIndex];
-      
-      cartItem = {
-        id: item.id,
-        quantity: item.quantity,
-        variant: mockVariants[item.variantId] || {
-          id: item.variantId,
-          price: 0,
-          product: { name: 'Unknown Product', category: { name: 'Unknown' }, brand: { name: 'Unknown' } }
+        
+        // Enhanced recovery: Check if item exists in other session carts
+        console.log('🔍 Searching for item in all available carts...');
+        let foundInOtherCart = false;
+        let migratedItem = null;
+        
+        // Use for...of loop to properly handle async/await
+        for (const key of Object.keys(global.mockCarts)) {
+          const cart = global.mockCarts[key];
+          const foundItem = cart.find(item => item.id === itemId);
+          if (foundItem) {
+            console.log(`   ✅ Found item in cart: ${key}`);
+            console.log(`      Item: id=${foundItem.id}, variantId=${foundItem.variantId}, quantity=${foundItem.quantity}`);
+            foundInOtherCart = true;
+            
+            // Migrate the item to the current cart
+            console.log(`🔄 Migrating item from ${key} to ${cartKey}`);
+            const itemIndex = cart.findIndex(item => item.id === itemId);
+            const [removedItem] = cart.splice(itemIndex, 1);
+            
+            // Update the migrated item quantity
+            removedItem.quantity = quantity;
+            global.mockCarts[cartKey].push(removedItem);
+            migratedItem = removedItem;
+            
+            console.log(`✅ Item migrated and updated successfully`);
+            
+            // Now fetch proper variant data for the migrated item
+            const variant = await getVariantData(migratedItem.variantId);
+            
+            cartItem = {
+              id: migratedItem.id,
+              quantity: migratedItem.quantity,
+              variant: variant
+            };
+            
+            console.log(`🔄 Variant data attached to migrated item: ${variant?.product?.name || 'Unknown'} - Price: ${variant?.price || 0}`);
+            break; // Stop searching once we find and migrate the item
+          }
         }
-      };
+        
+        if (!foundInOtherCart) {
+          return NextResponse.json(
+            { success: false, error: 'Cart item not found' },
+            { status: 404 }
+          );
+        }
 
-      console.log('✅ Cart item quantity updated in fallback storage');
+        console.log('✅ Cart item recovered and updated via migration');
+      } else {
+        // Normal update path when item is found in correct cart
+        if (quantity <= 0) {
+          // Remove item
+          global.mockCarts[cartKey].splice(itemIndex, 1);
+          console.log('✅ Item removed from cart');
+          return NextResponse.json({
+            success: true,
+            message: 'Item removed from cart'
+          });
+        }
+
+        // Update quantity
+        global.mockCarts[cartKey][itemIndex].quantity = quantity;
+        const item = global.mockCarts[cartKey][itemIndex];
+        
+        // Fetch proper variant data
+        const variant = await getVariantData(item.variantId);
+        
+        cartItem = {
+          id: item.id,
+          quantity: item.quantity,
+          variant: variant
+        };
+
+        console.log('✅ Cart item quantity updated in fallback storage');
+      }
     }
 
     return NextResponse.json({

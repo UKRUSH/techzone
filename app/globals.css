@@ -533,3 +533,14 @@
   .animate-float { animation: float 6s ease-in-out infinite; }
   .animate-scanline { animation: scanline 1.5s linear infinite; }
 }
+
+/* Header spacing utilities */
+.page-with-header {
+  padding-top: 104px; /* Header height (80px) + accent line (4px) + extra spacing (20px) */
+}
+
+@media (max-width: 768px) {
+  .page-with-header {
+    padding-top: 100px; /* Slightly less on mobile */
+  }
+}
