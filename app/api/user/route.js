@@ -1,32 +1,43 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+// Create a simple, reliable Prisma client
+const createSimplePrismaClient = () => {
+  return new PrismaClient({
+    log: ['error'],
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL
+      }
+    }
+  });
+};
 
 export async function GET() {
+  console.log("🚀 Starting simple user GET API");
+  let prisma = null;
+  
   try {
+    // Get session first
     const session = await getServerSession(authOptions);
     
-    console.log("User API - Session check:", {
-      hasSession: !!session,
-      user: session?.user,
-      email: session?.user?.email
-    });
-    
     if (!session?.user?.email) {
-      console.log("User API - No session or email found, returning 401");
+      console.log("❌ No session found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("User API - Looking for user with email:", session.user.email);
-
-    // Get user with all related data
+    console.log("👤 Getting user data for:", session.user.email);
+    
+    // Create and connect to database
+    prisma = createSimplePrismaClient();
+    await prisma.$connect();
+    console.log("✅ Database connected");
+    
+    // Get user data
     const user = await prisma.user.findUnique({
-      where: {
-        email: session.user.email
-      },
+      where: { email: session.user.email },
       include: {
         addresses: true,
         orders: {
@@ -39,9 +50,8 @@ export async function GET() {
             },
             delivery: true
           },
-          orderBy: {
-            createdAt: 'desc'
-          }
+          orderBy: { createdAt: 'desc' },
+          take: 5
         },
         wishlist: {
           include: {
@@ -51,12 +61,8 @@ export async function GET() {
           }
         },
         reviews: {
-          include: {
-            product: true
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
+          include: { product: true },
+          orderBy: { createdAt: 'desc' }
         },
         _count: {
           select: {
@@ -69,51 +75,19 @@ export async function GET() {
     });
 
     if (!user) {
+      console.log("❌ User not found");
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Calculate total spent
+    // Calculate stats
     const totalSpent = user.orders
       .filter(order => order.status === 'DELIVERED')
       .reduce((sum, order) => sum + order.total, 0);
 
-    // Calculate member years
     const memberSince = user.createdAt;
     const memberYears = new Date().getFullYear() - memberSince.getFullYear();
 
-    // Get recent activity (last 10 activities)
-    const recentActivity = [];
-    
-    // Add recent orders
-    user.orders.slice(0, 5).forEach(order => {
-      recentActivity.push({
-        id: `order-${order.id}`,
-        type: 'order',
-        title: `Order ${order.confirmationNumber} ${order.status.toLowerCase()}`,
-        description: `${order.orderItems.length} item${order.orderItems.length !== 1 ? 's' : ''} • $${order.total.toFixed(2)}`,
-        date: order.updatedAt,
-        status: order.status.toLowerCase(),
-        icon: 'package'
-      });
-    });
-
-    // Add recent reviews
-    user.reviews.slice(0, 3).forEach(review => {
-      recentActivity.push({
-        id: `review-${review.id}`,
-        type: 'review',
-        title: `Reviewed ${review.product.name}`,
-        description: `${review.rating} star${review.rating !== 1 ? 's' : ''} • "${review.title}"`,
-        date: review.createdAt,
-        rating: review.rating,
-        icon: 'star'
-      });
-    });
-
-    // Sort by date
-    recentActivity.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // Return user data
+    // Build response
     const userData = {
       id: user.id,
       name: user.name,
@@ -124,8 +98,8 @@ export async function GET() {
       role: user.role,
       loyaltyPoints: user.loyaltyPoints,
       loyaltyLevel: user.loyaltyLevel,
+      createdAt: user.createdAt, // Add this for "Member Since" display
       memberSince: user.createdAt,
-      createdAt: user.createdAt,
       memberYears,
       addresses: user.addresses,
       stats: {
@@ -135,7 +109,7 @@ export async function GET() {
         wishlistItems: user._count.wishlist,
         loyaltyPoints: user.loyaltyPoints
       },
-      recentOrders: user.orders.slice(0, 5).map(order => ({
+      recentOrders: user.orders.map(order => ({
         id: order.id,
         confirmationNumber: order.confirmationNumber,
         status: order.status,
@@ -153,200 +127,6 @@ export async function GET() {
         category: product.category.name,
         inStock: product.variants.some(v => v.inventoryLevels?.some(i => i.stock > 0))
       })),
-      recentActivity: recentActivity.slice(0, 10),
-      preferences: {
-        emailNotifications: true, // You can add a preferences field to user model later
-        pushNotifications: true,
-        marketingEmails: false
-      }
-    };
-
-    return NextResponse.json(userData);
-
-  } catch (error) {
-    console.error("Error fetching user data:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch user data" },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
-// PUT method for updating user profile
-export async function PUT(request) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const updateData = await request.json();
-    const { name, email, phone, address, preferences } = updateData;
-
-    // Validate email format if being updated
-    if (email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
-      }
-
-      // Check if email is already taken by another user
-      if (email !== session.user.email) {
-        const existingUser = await prisma.user.findUnique({
-          where: { email }
-        });
-        if (existingUser) {
-          return NextResponse.json({ error: "Email already taken" }, { status: 400 });
-        }
-      }
-    }
-
-    // Validate Sri Lankan phone number format if being updated
-    if (phone) {
-      const phoneRegex = /^0\d{9}$/;
-      if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
-        return NextResponse.json({ 
-          error: "Phone number must be exactly 10 digits starting with 0 (Sri Lankan format)" 
-        }, { status: 400 });
-      }
-    }
-
-    // Update user data
-    const updatedUser = await prisma.user.update({
-      where: {
-        email: session.user.email
-      },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(email !== undefined && { email }),
-        phone: phone || null, // Allow clearing phone number
-        address: address || null, // Allow clearing address
-        updatedAt: new Date()
-      },
-      include: {
-        addresses: true,
-        orders: {
-          include: {
-            orderItems: {
-              include: {
-                product: true,
-                variant: true
-              }
-            },
-            delivery: true
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        },
-        wishlist: {
-          include: {
-            variants: true,
-            brand: true,
-            category: true
-          }
-        },
-        reviews: {
-          include: {
-            product: true
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        },
-        _count: {
-          select: {
-            orders: true,
-            reviews: true,
-            wishlist: true
-          }
-        }
-      }
-    });
-
-    if (!updatedUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Calculate stats (same as GET method)
-    const totalSpent = updatedUser.orders
-      .filter(order => order.status === 'DELIVERED')
-      .reduce((sum, order) => sum + order.total, 0);
-
-    const memberSince = updatedUser.createdAt;
-    const memberYears = new Date().getFullYear() - memberSince.getFullYear();
-
-    // Get recent activity
-    const recentActivity = [];
-    
-    updatedUser.orders.slice(0, 5).forEach(order => {
-      recentActivity.push({
-        id: `order-${order.id}`,
-        type: 'order',
-        title: `Order ${order.confirmationNumber} ${order.status.toLowerCase()}`,
-        description: `${order.orderItems.length} item${order.orderItems.length !== 1 ? 's' : ''} • $${order.total.toFixed(2)}`,
-        date: order.updatedAt,
-        status: order.status.toLowerCase(),
-        icon: 'package'
-      });
-    });
-
-    updatedUser.reviews.slice(0, 3).forEach(review => {
-      recentActivity.push({
-        id: `review-${review.id}`,
-        type: 'review',
-        title: `Reviewed ${review.product.name}`,
-        description: `${review.rating} star${review.rating !== 1 ? 's' : ''} • "${review.title}"`,
-        date: review.createdAt,
-        rating: review.rating,
-        icon: 'star'
-      });
-    });
-
-    recentActivity.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    const userData = {
-      id: updatedUser.id,
-      name: updatedUser.name,
-      email: updatedUser.email,
-      phone: updatedUser.phone,
-      address: updatedUser.address,
-      image: updatedUser.image,
-      role: updatedUser.role,
-      loyaltyPoints: updatedUser.loyaltyPoints,
-      loyaltyLevel: updatedUser.loyaltyLevel,
-      memberSince: updatedUser.createdAt,
-      memberYears,
-      addresses: updatedUser.addresses,
-      stats: {
-        totalOrders: updatedUser._count.orders,
-        totalSpent: totalSpent,
-        totalReviews: updatedUser._count.reviews,
-        wishlistItems: updatedUser._count.wishlist,
-        loyaltyPoints: updatedUser.loyaltyPoints
-      },
-      recentOrders: updatedUser.orders.slice(0, 5).map(order => ({
-        id: order.id,
-        confirmationNumber: order.confirmationNumber,
-        status: order.status,
-        total: order.total,
-        itemCount: order.orderItems.length,
-        createdAt: order.createdAt,
-        trackingNumber: order.delivery?.trackingNumber
-      })),
-      wishlist: updatedUser.wishlist.map(product => ({
-        id: product.id,
-        name: product.name,
-        price: product.variants[0]?.price || 0,
-        images: product.images,
-        brand: product.brand.name,
-        category: product.category.name,
-        inStock: product.variants.some(v => v.inventoryLevels?.some(i => i.stock > 0))
-      })),
-      recentActivity: recentActivity.slice(0, 10),
       preferences: {
         emailNotifications: true,
         pushNotifications: true,
@@ -354,38 +134,189 @@ export async function PUT(request) {
       }
     };
 
+    console.log("✅ User data retrieved successfully");
     return NextResponse.json(userData);
 
   } catch (error) {
-    console.error("Error updating user:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("❌ Error in simple user GET:", error);
+    return NextResponse.json(
+      { error: "Failed to get user data", details: error.message },
+      { status: 500 }
+    );
   } finally {
-    await prisma.$disconnect();
+    if (prisma) {
+      await prisma.$disconnect();
+    }
   }
 }
 
-// DELETE method for deleting user account
-export async function DELETE() {
+export async function PUT(request) {
+  console.log("🚀 Starting simple user PUT API");
+  let prisma = null;
+  
   try {
+    // Get session first
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
+      console.log("❌ No session found for PUT request");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Delete user and all related data (cascade delete should handle this)
-    await prisma.user.delete({
-      where: {
-        email: session.user.email
+    console.log("👤 Updating user:", session.user.email);
+    
+    // Parse request data
+    let updateData;
+    try {
+      updateData = await request.json();
+      console.log("📝 Update data received:", Object.keys(updateData));
+    } catch (jsonError) {
+      console.error("❌ Invalid JSON:", jsonError.message);
+      return NextResponse.json({ error: "Invalid request data" }, { status: 400 });
+    }
+    
+    // Validate phone number if provided
+    if (updateData.phone && !/^0\d{9}$/.test(updateData.phone.replace(/\s/g, ''))) {
+      return NextResponse.json({ 
+        error: "Phone number must be exactly 10 digits starting with 0" 
+      }, { status: 400 });
+    }
+    
+    // Create and connect to database
+    prisma = createSimplePrismaClient();
+    await prisma.$connect();
+    console.log("✅ Database connected for update");
+    
+    // Update user - but preserve email to prevent session issues
+    const { name, email, phone, address } = updateData;
+    
+    // Don't allow email changes for now to prevent session issues
+    const updateFields = {
+      ...(name !== undefined && { name }),
+      // Skip email updates to prevent session mismatches
+      phone: phone || null,
+      address: address || null,
+      updatedAt: new Date()
+    };
+    
+    console.log("📝 Fields to update (email preserved):", updateFields);
+    
+    const updatedUser = await prisma.user.update({
+      where: { email: session.user.email },
+      data: updateFields,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        image: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true
       }
     });
 
-    return NextResponse.json({ message: "User account deleted successfully" });
+    console.log("✅ User updated successfully");
+    
+    return NextResponse.json({
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        image: updatedUser.image,
+        role: updatedUser.role,
+        createdAt: updatedUser.createdAt, // For "Member Since" display
+        memberSince: updatedUser.createdAt,
+        lastUpdated: updatedUser.updatedAt
+      },
+      message: "Profile updated successfully"
+    });
 
   } catch (error) {
-    console.error("Error deleting user:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("❌ Error in simple user PUT:", error);
+    
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    
+    return NextResponse.json(
+      { error: "Failed to update profile", details: error.message },
+      { status: 500 }
+    );
   } finally {
-    await prisma.$disconnect();
+    if (prisma) {
+      await prisma.$disconnect();
+    }
+  }
+}
+
+export async function DELETE() {
+  console.log("🚀 Starting user DELETE API");
+  let prisma = null;
+  
+  try {
+    // Get session first
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      console.log("❌ No session found for DELETE request");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    console.log("🗑️ Deleting user:", session.user.email);
+    
+    // Create and connect to database
+    prisma = createSimplePrismaClient();
+    await prisma.$connect();
+    console.log("✅ Database connected for deletion");
+    
+    // Check if user exists before deletion
+    const existingUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, email: true, name: true }
+    });
+    
+    if (!existingUser) {
+      console.log("❌ User not found for deletion");
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    
+    console.log("👤 User found for deletion:", existingUser);
+    
+    // Delete user and related data
+    // Note: Cascade deletes should handle related records
+    const deletedUser = await prisma.user.delete({
+      where: { email: session.user.email }
+    });
+
+    console.log("✅ User deleted successfully");
+    
+    return NextResponse.json({
+      message: "User account deleted successfully",
+      deletedUser: {
+        id: deletedUser.id,
+        email: deletedUser.email,
+        name: deletedUser.name
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Error deleting user:", error);
+    
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    
+    return NextResponse.json(
+      { error: "Failed to delete user account", details: error.message },
+      { status: 500 }
+    );
+  } finally {
+    if (prisma) {
+      await prisma.$disconnect();
+    }
   }
 }

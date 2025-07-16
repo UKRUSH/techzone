@@ -1,101 +1,44 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 
-// Mock cart storage (fallback when MongoDB is down)
+// Initialize global mock carts for fallback
 if (!global.mockCarts) {
   global.mockCarts = {};
 }
 
-// Mock product variants for cart items (legacy fallback)
-const mockVariants = {
-  "1": {
-    id: "1",
-    price: 409.99,
-    product: {
-      id: "1",
-      name: "Intel Core i7-13700K",
-      category: { name: "CPU" },
-      brand: { name: "Intel" },
-      images: ["/api/placeholder/400/400"]
-    },
-    totalStock: 50
-  },
-  "2": {
-    id: "2", 
-    price: 599.99,
-    product: {
-      id: "2",
-      name: "NVIDIA GeForce RTX 4070",
-      category: { name: "Graphics Cards" },
-      brand: { name: "NVIDIA" },
-      images: ["/api/placeholder/400/400"]
-    },
-    totalStock: 25
-  },
-  "3": {
-    id: "3",
-    price: 129.99,
-    product: {
-      id: "3",
-      name: "Corsair Vengeance RGB Pro 32GB",
-      category: { name: "Memory" },
-      brand: { name: "Corsair" },
-      images: ["/api/placeholder/400/400"]
-    },
-    totalStock: 100
-  }
-};
-
-// Enhanced fallback function to fetch real variant data
+// Get variant data from database only - no fallbacks
 async function getVariantData(variantId) {
-  try {
-    // Try to fetch from database
-    const variant = await prisma.productVariant.findUnique({
-      where: { id: variantId },
-      include: {
-        product: {
-          include: {
-            brand: true,
-            category: true
-          }
-        },
-        inventoryLevels: true
-      }
-    });
-    
-    if (variant) {
-      // Calculate total stock
-      const totalStock = variant.inventoryLevels.reduce((total, inventory) => {
-        return total + (inventory.stock - inventory.reserved);
-      }, 0);
-      
-      variant.totalStock = Math.max(0, totalStock);
-      return variant;
+  const variant = await prisma.productVariant.findUnique({
+    where: { id: variantId },
+    include: {
+      product: {
+        include: {
+          brand: true,
+          category: true
+        }
+      },
+      inventoryLevels: true
     }
-  } catch (error) {
-    console.log('Could not fetch variant from database:', error.message);
+  });
+  
+  if (!variant) {
+    throw new Error(`Product variant ${variantId} not found`);
   }
   
-  // Fallback to mock data or create minimal variant
-  const mockVariant = mockVariants[variantId] || {
-    id: variantId,
-    price: 0,
-    product: { 
-      name: 'Unknown Product', 
-      category: { name: 'Unknown' }, 
-      brand: { name: 'Unknown' },
-      images: ['/placeholder-product.jpg']
-    },
-    totalStock: 0
-  };
+  // Calculate total stock
+  const totalStock = variant.inventoryLevels.reduce((total, inventory) => {
+    return total + (inventory.stock - inventory.reserved);
+  }, 0);
   
-  return mockVariant;
+  variant.totalStock = Math.max(0, totalStock);
+  return variant;
 }
 
 export async function GET(request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
 
@@ -195,11 +138,22 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const session = await getServerSession();
+    console.log('🛒 Cart API: POST request received');
+    
+    const session = await getServerSession(authOptions);
+    console.log('🛒 Cart API: Session check', { 
+      hasSession: !!session, 
+      userId: session?.user?.id,
+      userEmail: session?.user?.email 
+    });
+    
     const data = await request.json();
+    console.log('🛒 Cart API: Request data', data);
+    
     const { variantId, quantity, sessionId } = data;
 
     if (!variantId || !quantity) {
+      console.log('🛒 Cart API: Missing required fields');
       return NextResponse.json(
         { success: false, error: 'Missing required fields: variantId, quantity' },
         { status: 400 }
@@ -209,6 +163,8 @@ export async function POST(request) {
     let cartItem;
 
     try {
+      console.log('🛒 Cart API: Attempting database operations');
+      
       // Try database first
       // Verify variant exists
       const variant = await prisma.productVariant.findUnique({
@@ -219,11 +175,17 @@ export async function POST(request) {
       });
 
       if (!variant) {
+        console.log('🛒 Cart API: Variant not found', variantId);
         return NextResponse.json(
           { success: false, error: 'Product variant not found' },
           { status: 404 }
         );
       }
+
+      console.log('🛒 Cart API: Variant found', { 
+        variantId, 
+        productName: variant.product?.name 
+      });
 
       // Check if item already exists in cart
       const existingItem = await prisma.cartItem.findFirst({
@@ -231,6 +193,11 @@ export async function POST(request) {
           variantId: variantId,
           ...(session?.user?.id ? { userId: session.user.id } : { sessionId: sessionId })
         }
+      });
+
+      console.log('🛒 Cart API: Existing item check', { 
+        found: !!existingItem,
+        existingQuantity: existingItem?.quantity 
       });
 
       if (existingItem) {
@@ -251,6 +218,7 @@ export async function POST(request) {
             }
           }
         });
+        console.log('🛒 Cart API: Updated existing item');
       } else {
         // Create new cart item
         cartItem = await prisma.cartItem.create({
@@ -273,6 +241,7 @@ export async function POST(request) {
             }
           }
         });
+        console.log('🛒 Cart API: Created new cart item');
       }
 
       console.log('✅ Cart item added/updated successfully in MongoDB');
@@ -317,14 +286,25 @@ export async function POST(request) {
       console.log('✅ Cart item added/updated successfully in enhanced fallback storage');
     }
 
-    return NextResponse.json({
+    console.log('🛒 Cart API: Final cart item', {
+      id: cartItem?.id,
+      quantity: cartItem?.quantity,
+      variantId: cartItem?.variantId || cartItem?.variant?.id,
+      productName: cartItem?.variant?.product?.name
+    });
+
+    const response = {
       success: true,
       data: cartItem,
       message: 'Item added to cart successfully'
-    });
+    };
+
+    console.log('🛒 Cart API: Sending response', response);
+
+    return NextResponse.json(response);
 
   } catch (error) {
-    console.error('Error adding item to cart:', error);
+    console.error('🛒 Cart API: Error adding item to cart:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to add item to cart: ' + error.message },
       { status: 500 }
@@ -334,7 +314,7 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     const data = await request.json();
     const { itemId, quantity, sessionId } = data;
 
@@ -354,7 +334,7 @@ export async function PUT(request) {
       // Try database first
       if (quantity <= 0) {
         // Remove item if quantity is 0 or negative
-        await prisma.cartItem.delete({
+        const deletedItem = await prisma.cartItem.delete({
           where: { id: itemId }
         });
 
@@ -388,6 +368,45 @@ export async function PUT(request) {
       console.log('✅ Cart item quantity updated in MongoDB');
       
     } catch (dbError) {
+      console.log('🔧 Database error during cart update:', dbError.message);
+      
+      // Check if the error is because the cart item doesn't exist
+      if (dbError.code === 'P2025' || dbError.message.includes('Record to update not found')) {
+        console.log('❌ Cart item not found in database');
+        
+        // Enhanced debugging: Check if item belongs to different user
+        const allCartItems = await prisma.cartItem.findMany({
+          where: { id: itemId },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true
+              }
+            }
+          }
+        }).catch(() => []);
+        
+        if (allCartItems.length > 0) {
+          const item = allCartItems[0];
+          console.log(`🔍 Found cart item but it belongs to user: ${item.user?.email} (ID: ${item.userId})`);
+          console.log(`🔍 Current session user: ${session?.user?.id || 'guest'}`);
+          
+          return NextResponse.json({
+            success: false,
+            error: 'Cart item belongs to different user session. Please refresh the page and try again.',
+            code: 'SESSION_MISMATCH'
+          }, { status: 403 });
+        }
+        
+        return NextResponse.json({
+          success: false,
+          error: 'Cart item not found. Please refresh the page and try again.',
+          code: 'ITEM_NOT_FOUND'
+        }, { status: 404 });
+      }
+      
+      // Fall back to mock cart for other database errors
       console.log('🔧 Database unavailable, using fallback cart storage');
       console.log('🔧 dbError:', dbError.message);
       
@@ -566,7 +585,7 @@ export async function DELETE(request) {
     } catch (dbError) {
       console.log('Database unavailable, using fallback cart storage');
       // Use fallback mock cart
-      const session = await getServerSession();
+      const session = await getServerSession(authOptions);
       const cartKey = session?.user?.id || sessionId || 'guest';
       
       if (!global.mockCarts[cartKey]) {

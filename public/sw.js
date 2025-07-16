@@ -72,9 +72,10 @@ self.addEventListener('fetch', event => {
         
         // No cache, fetch from network
         return fetch(request).then(networkResponse => {
-          if (networkResponse.ok) {
+          if (networkResponse.ok && networkResponse.body) {
+            const responseToCache = networkResponse.clone();
             caches.open(API_CACHE_NAME).then(cache => {
-              cache.put(request, networkResponse.clone());
+              cache.put(request, responseToCache);
             });
           }
           return networkResponse;
@@ -116,12 +117,24 @@ self.addEventListener('fetch', event => {
         
         // No cache, fetch from network
         return fetch(request).then(networkResponse => {
-          if (networkResponse.ok) {
+          // Check if response is valid and body is available before cloning
+          if (networkResponse.ok && networkResponse.body && !networkResponse.bodyUsed) {
+            // Clone the response before consuming it
+            const responseClone = networkResponse.clone();
             caches.open(CACHE_NAME).then(cache => {
-              cache.put(request, networkResponse.clone());
+              cache.put(request, responseClone);
+            }).catch(error => {
+              console.warn('Cache storage failed:', error);
             });
           }
           return networkResponse;
+        }).catch(error => {
+          console.warn('Network request failed:', error);
+          // Return a basic error response instead of letting it fail
+          return new Response('Service temporarily unavailable', { 
+            status: 503, 
+            statusText: 'Service Unavailable' 
+          });
         });
       })
     );

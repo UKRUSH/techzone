@@ -104,11 +104,15 @@ export async function GET(request) {
     // Limit results
     fastResponse.products = fastResponse.products.slice(0, limit);
 
-    // Ultra-aggressive caching headers for instant responses
+    // Ultra-fast response with aggressive caching
     const response = NextResponse.json(fastResponse);
-    response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=86400');
-    response.headers.set('CDN-Cache-Control', 'public, max-age=300');
-    response.headers.set('Vercel-CDN-Cache-Control', 'public, max-age=300');
+    
+    // Performance headers for instant loading
+    response.headers.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=600, stale-if-error=86400');
+    response.headers.set('CDN-Cache-Control', 'public, max-age=600');
+    response.headers.set('Vary', 'Accept-Encoding');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('Access-Control-Max-Age', '86400');
     
     return response;
 

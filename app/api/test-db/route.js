@@ -1,26 +1,38 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, withDatabaseConnection } from '@/lib/prisma';
 
 export async function GET() {
+  console.log("🧪 Database connection test endpoint");
+  
   try {
-    // Try to connect to the database
-    await prisma.$connect();
-    
-    // Try a simple query
-    const userCount = await prisma.user.count();
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Database connection successful',
-      userCount 
+    const result = await withDatabaseConnection(async () => {
+      console.log("🔍 Testing database connection...");
+      
+      // Simple test query
+      const userCount = await prisma.user.count();
+      console.log(`✅ Found ${userCount} users`);
+      
+      return {
+        status: "connected",
+        message: "Database connection successful",
+        userCount,
+        timestamp: new Date().toISOString()
+      };
     });
+    
+    return NextResponse.json(result);
+    
   } catch (error) {
-    console.error('Database connection error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error.message 
-    }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
+    console.error("❌ Database test failed:", error.message);
+    
+    return NextResponse.json(
+      {
+        status: "failed",
+        message: "Database connection failed",
+        error: error.message,
+        timestamp: new Date().toISOString()
+      },
+      { status: 503 }
+    );
   }
 }

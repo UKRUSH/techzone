@@ -46,6 +46,62 @@ export default function ProfilePage() {
   const [editData, setEditData] = useState({});
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateError, setUpdateError] = useState('');
+  
+  // Local state for immediate UI updates
+  const [displayUserData, setDisplayUserData] = useState(null);
+
+  // Debug logging for Recent Activity
+  useEffect(() => {
+    console.log('🔍 Profile Page - Recent Activity Debug:', {
+      sessionStatus: status,
+      userEmail: session?.user?.email,
+      ordersLoading,
+      ordersError,
+      recentOrdersCount: recentOrders?.length,
+      recentOrders: recentOrders?.slice(0, 2), // Just first 2 for logging
+      hasSession: !!session,
+      isAuthenticated: status === 'authenticated'
+    });
+  }, [status, session, ordersLoading, ordersError, recentOrders]);
+
+  // Initialize edit data when userData changes
+  useEffect(() => {
+    if (userData) {
+      setEditData({
+        name: userData.name || '',
+        // Remove email from edit data to prevent session issues
+        phone: userData.phone || '',
+        address: userData.address || ''
+      });
+    }
+  }, [userData]);
+
+  // Sync display data with userData
+  useEffect(() => {
+    if (userData) {
+      setDisplayUserData(userData);
+    }
+  }, [userData]);
+
+  // Clear display data when session changes (sign out/sign in)
+  useEffect(() => {
+    console.log('👤 Profile page - Session change detected:', {
+      status,
+      userEmail: session?.user?.email,
+      hasUserData: !!userData,
+      hasDisplayData: !!displayUserData
+    });
+    
+    if (status === 'unauthenticated') {
+      console.log('🚪 User signed out - clearing all profile data');
+      setDisplayUserData(null);
+      setEditData({});
+      setIsEditing(false);
+      setUpdateError('');
+    } else if (status === 'authenticated' && session?.user?.email) {
+      console.log('🔑 User signed in:', session.user.email);
+    }
+  }, [status, session?.user?.email, userData, displayUserData]);
 
   // Helper functions for order status
   const getStatusIcon = (status) => {
@@ -133,7 +189,7 @@ export default function ProfilePage() {
     if (userData) {
       setEditData({
         name: userData.name || '',
-        email: userData.email || '',
+        // Remove email from edit to prevent session issues
         phone: userData.phone || '',
         address: userData.address || ''
       });
@@ -143,6 +199,7 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
+    console.log('🚀 Starting profile save...');
     setUpdateLoading(true);
     setUpdateError('');
 
@@ -153,6 +210,8 @@ export default function ProfilePage() {
       return;
     }
 
+    console.log('📝 Sending update data:', editData);
+
     try {
       const response = await fetch('/api/user', {
         method: 'PUT',
@@ -162,17 +221,76 @@ export default function ProfilePage() {
         body: JSON.stringify(editData),
       });
       
-      const result = await response.json();
+      console.log('📊 Response status:', response.status);
+      console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      // Check if response has content before parsing JSON
+      let result = {};
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        const text = await response.text();
+        console.log('📋 Response text:', text);
+        if (text.trim()) {
+          try {
+            result = JSON.parse(text);
+            console.log('📋 Parsed response:', result);
+          } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            console.error('Response text:', text);
+            throw new Error('Invalid response from server');
+          }
+        }
+      } else {
+        console.error('Response is not JSON:', contentType);
+        throw new Error('Server returned non-JSON response');
+      }
 
       if (response.ok) {
-        await refetch(); // Refresh user data
+        console.log('✅ Profile updated successfully, refreshing data...');
+        
+        // Immediately update the displayed user data for instant UI update
+        if (result.user && displayUserData) {
+          const updatedDisplayData = {
+            ...displayUserData,
+            name: result.user.name || displayUserData.name,
+            phone: result.user.phone || displayUserData.phone,
+            address: result.user.address || displayUserData.address,
+            updatedAt: new Date().toISOString() // Mark as recently updated
+          };
+          setDisplayUserData(updatedDisplayData);
+          console.log('📋 Display data updated immediately:', updatedDisplayData);
+        }
+        
+        // Update the editData for next edit session
+        if (result.user) {
+          setEditData({
+            name: result.user.name || '',
+            phone: result.user.phone || '',
+            address: result.user.address || ''
+          });
+        }
+        
+        // Exit edit mode
         setIsEditing(false);
+        
+        // Force refresh the data in the background for consistency
+        setTimeout(() => {
+          console.log('🔄 Background refresh starting...');
+          refetch();
+        }, 100);
+        
+        console.log('✅ Profile update completed - UI updated immediately');
       } else {
-        setUpdateError(result.error || 'Failed to update profile');
+        setUpdateError(result.error || `Failed to update profile (${response.status})`);
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      setUpdateError('Failed to update profile');
+      if (error.message.includes('JSON') || error.message.includes('response')) {
+        setUpdateError('Server communication error. Please try again.');
+      } else {
+        setUpdateError('Failed to update profile');
+      }
     } finally {
       setUpdateLoading(false);
     }
@@ -183,6 +301,43 @@ export default function ProfilePage() {
       ...prev,
       [field]: value
     }));
+  };
+
+  // Handle profile deletion
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDeleteProfile = async () => {
+    setDeleteLoading(true);
+    setUpdateError('');
+
+    try {
+      const response = await fetch('/api/user', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('🗑️ Delete response status:', response.status);
+      
+      const result = await response.json();
+      console.log('🗑️ Delete response:', result);
+
+      if (response.ok) {
+        // Sign out after successful deletion
+        alert('Profile deleted successfully. You will be signed out.');
+        window.location.href = '/auth/signin';
+      } else {
+        setUpdateError(result.error || 'Failed to delete profile');
+      }
+    } catch (error) {
+      console.error('Error deleting profile:', error);
+      setUpdateError('Failed to delete profile');
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   // Show loading state while checking authentication
@@ -269,8 +424,8 @@ export default function ProfilePage() {
                 {userData?.image ? (
                   <div className="relative">
                     <Image
-                      src={userData.image}
-                      alt={userData.name || 'Profile'}
+                      src={displayUserData?.image || userData?.image}
+                      alt={displayUserData?.name || userData?.name || 'Profile'}
                       width={120}
                       height={120}
                       className="rounded-full border-4 border-yellow-400 shadow-2xl shadow-yellow-400/25"
@@ -303,7 +458,7 @@ export default function ProfilePage() {
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
                   <div>
                     <h1 className="text-4xl font-bold text-white mb-2">
-                      {userData?.name || session?.user?.name || 'User'}
+                      {displayUserData?.name || userData?.name || session?.user?.name || 'User'}
                     </h1>
                     <div className="flex items-center justify-center lg:justify-start space-x-4 text-yellow-300">
                       <div className="flex items-center space-x-2">
@@ -313,7 +468,7 @@ export default function ProfilePage() {
                       {userData?.loyaltyLevel && (
                         <div className="flex items-center space-x-2">
                           <Award className="h-4 w-4" />
-                          <span className="text-sm font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">{userData.loyaltyLevel} Member</span>
+                          <span className="text-sm font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">{displayUserData?.loyaltyLevel || userData?.loyaltyLevel} Member</span>
                         </div>
                       )}
                     </div>
@@ -359,7 +514,7 @@ export default function ProfilePage() {
                         <Gift className="h-5 w-5 text-black" />
                       </div>
                       <div>
-                        <p className="text-yellow-300 font-bold text-lg">{userData.loyaltyPoints} Points</p>
+                        <p className="text-yellow-300 font-bold text-lg">{displayUserData?.loyaltyPoints || userData?.loyaltyPoints} Points</p>
                         <p className="text-yellow-400/70 text-sm font-medium">Loyalty Rewards</p>
                       </div>
                     </div>
@@ -413,13 +568,10 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-yellow-300 mb-2">Email Address</label>
-                    <input
-                      type="email"
-                      value={editData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      className="w-full px-4 py-3 bg-black/60 border-2 border-yellow-500/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition-all text-white placeholder-gray-400"
-                      placeholder="Enter your email"
-                    />
+                    <div className="w-full px-4 py-3 bg-black/60 border-2 border-gray-500/40 rounded-xl text-gray-400">
+                      {userData?.email || 'Not set'} 
+                      <span className="text-xs text-gray-500 ml-2">(Cannot be changed)</span>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-yellow-300 mb-2">Phone Number (Sri Lankan)</label>
@@ -457,7 +609,7 @@ export default function ProfilePage() {
                     <Phone className="h-5 w-5 text-yellow-400" />
                     <div>
                       <p className="text-sm font-medium text-yellow-300">Phone</p>
-                      <p className="text-white font-medium">{userData?.phone || 'Not provided'}</p>
+                      <p className="text-white font-medium">{displayUserData?.phone || userData?.phone || 'Not provided'}</p>
                     </div>
                   </div>
                   
@@ -465,7 +617,7 @@ export default function ProfilePage() {
                     <MapPin className="h-5 w-5 text-yellow-400 mt-1" />
                     <div>
                       <p className="text-sm font-medium text-yellow-300">Address</p>
-                      <p className="text-white font-medium">{userData?.address || 'Not provided'}</p>
+                      <p className="text-white font-medium">{displayUserData?.address || userData?.address || 'Not provided'}</p>
                     </div>
                   </div>
                   
@@ -474,7 +626,7 @@ export default function ProfilePage() {
                     <div>
                       <p className="text-sm font-medium text-yellow-300">Member Since</p>
                       <p className="text-white font-medium">
-                        {userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString() : 'N/A'}
+                        {(displayUserData?.createdAt || userData?.createdAt) ? new Date(displayUserData?.createdAt || userData?.createdAt).toLocaleDateString() : 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -506,6 +658,53 @@ export default function ProfilePage() {
                   <span className="text-gray-300">Total Orders</span>
                   <span className="text-yellow-300 font-bold">{recentOrders?.length || 0}</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Delete Profile Card */}
+            <div className="bg-gradient-to-br from-red-900/30 via-red-800/40 to-red-900/30 border-2 border-red-500/40 rounded-2xl shadow-2xl p-6 backdrop-blur-sm">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+                <Trash2 className="h-5 w-5 text-red-400" />
+                <span>Danger Zone</span>
+              </h3>
+              <div className="space-y-4">
+                <p className="text-gray-300 text-sm">
+                  Once you delete your account, there is no going back. This will permanently delete your profile, orders, and all associated data.
+                </p>
+                {!showDeleteConfirm ? (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex items-center space-x-2 bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 font-bold"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete Profile</span>
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-red-300 font-medium">Are you absolutely sure? This action cannot be undone.</p>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleDeleteProfile}
+                        disabled={deleteLoading}
+                        className="flex items-center space-x-2 bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 font-bold disabled:opacity-50"
+                      >
+                        {deleteLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        <span>{deleteLoading ? 'Deleting...' : 'Yes, Delete Forever'}</span>
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex items-center space-x-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white px-4 py-2 rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-bold"
+                      >
+                        <X className="h-4 w-4" />
+                        <span>Cancel</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -598,101 +797,141 @@ export default function ProfilePage() {
                   <Loader2 className="w-6 h-6 animate-spin text-yellow-400 mr-3" />
                   <p className="text-gray-400">Loading your recent orders...</p>
                 </div>
+              ) : ordersError ? (
+                <div className="text-center py-8">
+                  <div className="bg-gradient-to-br from-red-400/20 to-red-500/20 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="h-12 w-12 text-red-400" />
+                  </div>
+                  <p className="text-white text-lg font-bold mb-2">Unable to load recent activity</p>
+                  <p className="text-gray-400 text-sm mb-4">Error: {ordersError}</p>
+                  {status === 'unauthenticated' ? (
+                    <button 
+                      onClick={() => window.location.href = '/auth/signin'}
+                      className="inline-flex items-center bg-gradient-to-r from-yellow-400 to-amber-500 text-black px-6 py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-yellow-400/25 transition-all duration-200"
+                    >
+                      <LogIn className="w-4 h-4 mr-2" />
+                      Sign In
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="inline-flex items-center bg-gradient-to-r from-yellow-400 to-amber-500 text-black px-6 py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-yellow-400/25 transition-all duration-200"
+                    >
+                      <Loader2 className="w-4 h-4 mr-2" />
+                      Try Again
+                    </button>
+                  )}
+                </div>
               ) : recentOrders && recentOrders.length > 0 ? (
                 <div className="space-y-4">
-                  {recentOrders.slice(0, 3).map((order, index) => (
-                    <div key={order.id} className="bg-yellow-400/5 border border-yellow-500/20 rounded-xl p-4 hover:bg-yellow-400/10 transition-all duration-200 group">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg p-2 shadow-lg">
-                            {getStatusIcon(order.status)}
+                  {recentOrders.slice(0, 3).map((order, index) => {
+                    // Ensure order has required data
+                    const orderNumber = order.orderNumber || order.confirmationNumber || `ORD-${order.id?.slice(-6) || index}`;
+                    const orderTotal = order.total || 0;
+                    const orderDate = order.date || order.createdAt || new Date();
+                    const orderStatus = order.status || 'pending';
+                    const orderItems = order.items || [];
+
+                    return (
+                      <div key={order.id || index} className="bg-yellow-400/5 border border-yellow-500/20 rounded-xl p-4 hover:bg-yellow-400/10 transition-all duration-200 group">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg p-2 shadow-lg">
+                              {getStatusIcon(orderStatus)}
+                            </div>
+                            <div>
+                              <p className="font-bold text-white">Order #{orderNumber}</p>
+                              <p className="text-sm text-yellow-300">
+                                {new Date(orderDate).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-bold text-white">Order #{order.orderNumber}</p>
-                            <p className="text-sm text-yellow-300">
-                              {order.date ? new Date(order.date).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              }) : 'Date unknown'}
+                          <div className="text-right">
+                            <p className="font-bold text-yellow-300 text-lg">
+                              ${orderTotal.toFixed(2)}
                             </p>
+                            <span className={`inline-flex items-center px-2 py-1 text-xs font-bold rounded-full border ${getStatusColor(orderStatus)}`}>
+                              {getStatusIcon(orderStatus)}
+                              <span className="ml-1 capitalize">{orderStatus}</span>
+                            </span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-yellow-300 text-lg">
-                            ${order.total ? order.total.toFixed(2) : 'N/A'}
-                          </p>
-                          <span className={`inline-flex items-center px-2 py-1 text-xs font-bold rounded-full border ${getStatusColor(order.status)}`}>
-                            {getStatusIcon(order.status)}
-                            <span className="ml-1 capitalize">{order.status || 'Unknown'}</span>
-                          </span>
-                        </div>
-                      </div>
 
-                      {/* Order Progress Bar */}
-                      <div className="mb-3">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm text-gray-300">{getStatusMessage(order.status)}</span>
-                          <span className="text-sm text-yellow-400 font-medium">{getOrderProgress(order.status)}%</span>
+                        {/* Order Progress Bar */}
+                        <div className="mb-3">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-gray-300">{getStatusMessage(orderStatus)}</span>
+                            <span className="text-sm text-yellow-400 font-medium">{getOrderProgress(orderStatus)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-700 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-yellow-400 to-amber-500 h-2 rounded-full transition-all duration-500 ease-out"
+                              style={{ width: `${getOrderProgress(orderStatus)}%` }}
+                            ></div>
+                          </div>
                         </div>
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
-                            className="bg-gradient-to-r from-yellow-400 to-amber-500 h-2 rounded-full transition-all duration-500 ease-out"
-                            style={{ width: `${getOrderProgress(order.status)}%` }}
-                          ></div>
-                        </div>
-                      </div>
 
-                      {/* Order Items Preview */}
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-400 mb-2">Items ({order.items?.length || 0}):</p>
-                        <div className="flex flex-wrap gap-2">
-                          {order.items?.slice(0, 2).map((item, itemIndex) => (
-                            <div key={itemIndex} className="bg-gray-800/50 rounded-lg px-3 py-1 border border-gray-700">
-                              <span className="text-xs text-white font-medium">{item.name}</span>
-                              <span className="text-xs text-gray-400 ml-2">×{item.quantity}</span>
+                        {/* Order Items Preview */}
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-400 mb-2">Items ({orderItems.length}):</p>
+                          {orderItems.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {orderItems.slice(0, 2).map((item, itemIndex) => (
+                                <div key={itemIndex} className="bg-gray-800/50 rounded-lg px-3 py-1 border border-gray-700">
+                                  <span className="text-xs text-white font-medium">{item.name || item.productName || 'Item'}</span>
+                                  <span className="text-xs text-gray-400 ml-2">×{item.quantity || 1}</span>
+                                </div>
+                              ))}
+                              {orderItems.length > 2 && (
+                                <div className="bg-gray-800/50 rounded-lg px-3 py-1 border border-gray-700">
+                                  <span className="text-xs text-gray-400">+{orderItems.length - 2} more</span>
+                                </div>
+                              )}
                             </div>
-                          ))}
-                          {order.items?.length > 2 && (
+                          ) : (
                             <div className="bg-gray-800/50 rounded-lg px-3 py-1 border border-gray-700">
-                              <span className="text-xs text-gray-400">+{order.items.length - 2} more</span>
+                              <span className="text-xs text-gray-400">No items available</span>
                             </div>
                           )}
                         </div>
-                      </div>
 
-                      {/* Additional Info Based on Status */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4 text-sm">
-                          {order.shipping?.trackingNumber && order.status !== 'cancelled' && (
-                            <div className="flex items-center space-x-1 text-blue-400">
-                              <Truck className="w-4 h-4" />
-                              <span>Tracking: {order.shipping.trackingNumber}</span>
-                            </div>
-                          )}
-                          {order.status === 'delivered' && (
-                            <div className="flex items-center space-x-1 text-green-400">
-                              <CheckCircle className="w-4 h-4" />
-                              <span>Delivered</span>
-                            </div>
-                          )}
-                          {order.status === 'shipped' && (
-                            <div className="flex items-center space-x-1 text-blue-400">
-                              <Clock className="w-4 h-4" />
-                              <span>Est. delivery in 2-3 days</span>
-                            </div>
-                          )}
+                        {/* Additional Info Based on Status */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4 text-sm">
+                            {order.shipping?.trackingNumber && orderStatus !== 'cancelled' && (
+                              <div className="flex items-center space-x-1 text-blue-400">
+                                <Truck className="w-4 h-4" />
+                                <span>Tracking: {order.shipping.trackingNumber}</span>
+                              </div>
+                            )}
+                            {orderStatus === 'delivered' && (
+                              <div className="flex items-center space-x-1 text-green-400">
+                                <CheckCircle className="w-4 h-4" />
+                                <span>Delivered</span>
+                              </div>
+                            )}
+                            {orderStatus === 'shipped' && (
+                              <div className="flex items-center space-x-1 text-blue-400">
+                                <Clock className="w-4 h-4" />
+                                <span>Est. delivery in 2-3 days</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <Link 
+                            href={`/orders`}
+                            className="text-sm text-yellow-400 hover:text-yellow-300 font-medium transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            View Details →
+                          </Link>
                         </div>
-                        
-                        <Link 
-                          href={`/orders`}
-                          className="text-sm text-yellow-400 hover:text-yellow-300 font-medium transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          View Details →
-                        </Link>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
@@ -708,6 +947,40 @@ export default function ProfilePage() {
                     <ShoppingBag className="w-4 h-4 mr-2" />
                     Start Shopping
                   </Link>
+                </div>
+              )}
+
+              {/* Enhanced Debugging Info */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                  <p className="text-sm text-gray-400 mb-2">🔍 Debug Info:</p>
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <p>Orders loading: {ordersLoading ? 'true' : 'false'}</p>
+                    <p>Orders error: {ordersError ? 'true' : 'false'}</p>
+                    <p>Recent orders length: {recentOrders?.length || 0}</p>
+                    <p>User session status: {status}</p>
+                    <p>User ID: {userData?.id || 'null'}</p>
+                    {recentOrders && recentOrders.length > 0 && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-yellow-400 hover:text-yellow-300">
+                          📋 View First Order Data Structure
+                        </summary>
+                        <pre className="mt-2 p-2 bg-gray-900 rounded text-xs overflow-auto max-h-40 whitespace-pre-wrap">
+                          {JSON.stringify(recentOrders[0], null, 2)}
+                        </pre>
+                      </details>
+                    )}
+                    {ordersError && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-red-400 hover:text-red-300">
+                          ❌ View Error Details
+                        </summary>
+                        <pre className="mt-2 p-2 bg-gray-900 rounded text-xs overflow-auto max-h-40 whitespace-pre-wrap">
+                          {JSON.stringify(ordersError, null, 2)}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

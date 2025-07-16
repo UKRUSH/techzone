@@ -1,0 +1,569 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma, ensureConnection, withDatabaseConnection } from "@/lib/prisma";
+
+export async function GET() {
+  console.log("🚀 Starting user API");
+  
+  try {
+    // Ensure robust database connection
+    console.log("🔄 Ensuring database connection...");
+    const connectionEstablished = await ensureConnection();
+    if (!connectionEstablished) {
+      console.error("❌ Failed to establish database connection");
+      return NextResponse.json(
+        { error: "Database connection failed", retry: true },
+        { status: 503 }
+      );
+    }
+    console.log("✅ Database connection verified");
+    
+    const session = await getServerSession(authOptions);
+    
+    console.log("User API - Session check:", {
+      hasSession: !!session,
+      user: session?.user,
+      email: session?.user?.email
+    });
+    
+    if (!session?.user?.email) {
+      console.log("❌ No session found");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    console.log("📊 Attempting database query for user:", session.user.email);
+    
+    // Wrap database query in try-catch for connection issues
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: {
+          email: session.user.email
+        },
+        include: {
+        addresses: true,
+        orders: {
+          include: {
+            orderItems: {
+              include: {
+                product: true,
+                variant: true
+              }
+            },
+            delivery: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        wishlist: {
+          include: {
+            variants: true,
+            brand: true,
+            category: true
+          }
+        },
+        reviews: {
+          include: {
+            product: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        _count: {
+          select: {
+            orders: true,
+            reviews: true,
+            wishlist: true
+          }
+        }
+      }
+    });
+    } catch (queryError) {
+      console.error("❌ Database query failed:", queryError.message);
+      // Try to reconnect and retry once
+      await prisma.$connect();
+      user = await prisma.user.findUnique({
+        where: {
+          email: session.user.email
+        },
+        include: {
+          addresses: true,
+          orders: {
+            include: {
+              orderItems: {
+                include: {
+                  product: true,
+                  variant: true
+                }
+              },
+              delivery: true
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          },
+          wishlist: {
+            include: {
+              variants: true,
+              brand: true,
+              category: true
+            }
+          },
+          reviews: {
+            include: {
+              product: true,
+              variant: true
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          },
+          // Add cart for completeness
+          cart: {
+            include: {
+              cartItems: {
+                include: {
+                  variant: {
+                    include: {
+                      product: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        // Include related counts for statistics
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          phone: true,
+          createdAt: true,
+          addresses: true,
+          orders: true,
+          reviews: true,
+          wishlist: true
+        }
+      });
+    }
+
+    console.log("✅ Database query successful, user found:", !!user);
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Calculate total spent
+    const totalSpent = user.orders
+      .filter(order => order.status === 'DELIVERED')
+      .reduce((sum, order) => sum + order.total, 0);
+
+    // Calculate member years
+    const memberSince = user.createdAt;
+    const memberYears = new Date().getFullYear() - memberSince.getFullYear();
+
+    // Get recent activity (last 10 activities)
+    const recentActivity = [];
+    
+    // Add recent orders
+    user.orders.slice(0, 5).forEach(order => {
+      recentActivity.push({
+        id: `order-${order.id}`,
+        type: 'order',
+        title: `Order ${order.confirmationNumber} ${order.status.toLowerCase()}`,
+        description: `${order.orderItems.length} item${order.orderItems.length !== 1 ? 's' : ''} • $${order.total.toFixed(2)}`,
+        date: order.updatedAt,
+        status: order.status.toLowerCase(),
+        icon: 'package'
+      });
+    });
+
+    // Add recent reviews
+    user.reviews.slice(0, 3).forEach(review => {
+      recentActivity.push({
+        id: `review-${review.id}`,
+        type: 'review',
+        title: `Reviewed ${review.product.name}`,
+        description: `${review.rating} star${review.rating !== 1 ? 's' : ''} • "${review.title}"`,
+        date: review.createdAt,
+        rating: review.rating,
+        icon: 'star'
+      });
+    });
+
+    // Sort by date
+    recentActivity.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Return user data
+    const userData = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+      image: user.image,
+      role: user.role,
+      loyaltyPoints: user.loyaltyPoints,
+      loyaltyLevel: user.loyaltyLevel,
+      memberSince: user.createdAt,
+      createdAt: user.createdAt,
+      memberYears,
+      addresses: user.addresses,
+      stats: {
+        totalOrders: user._count.orders,
+        totalSpent: totalSpent,
+        totalReviews: user._count.reviews,
+        wishlistItems: user._count.wishlist,
+        loyaltyPoints: user.loyaltyPoints
+      },
+      recentOrders: user.orders.slice(0, 5).map(order => ({
+        id: order.id,
+        confirmationNumber: order.confirmationNumber,
+        status: order.status,
+        total: order.total,
+        itemCount: order.orderItems.length,
+        createdAt: order.createdAt,
+        trackingNumber: order.delivery?.trackingNumber
+      })),
+      wishlist: user.wishlist.map(product => ({
+        id: product.id,
+        name: product.name,
+        price: product.variants[0]?.price || 0,
+        images: product.images,
+        brand: product.brand.name,
+        category: product.category.name,
+        inStock: product.variants.some(v => v.inventoryLevels?.some(i => i.stock > 0))
+      })),
+      recentActivity: recentActivity.slice(0, 10),
+      preferences: {
+        emailNotifications: true, // You can add a preferences field to user model later
+        pushNotifications: true,
+        marketingEmails: false
+      }
+    };
+
+    return NextResponse.json(userData);
+
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch user data", details: error.message },
+      { status: 500 }
+    );
+  } finally {
+    try {
+      await prisma.$disconnect();
+    } catch (disconnectError) {
+      console.error("Error disconnecting from database:", disconnectError);
+    }
+  }
+}
+
+// PUT method for updating user profile
+export async function PUT(request) {
+  console.log("🚀 Starting user PUT API");
+  
+  try {
+    // Use the robust database wrapper
+    const result = await withDatabaseConnection(async () => {
+      // Get session within the database context
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.email) {
+        console.log("❌ No session found for PUT request");
+        throw new Error("UNAUTHORIZED");
+      }
+
+      console.log("📊 Processing PUT request for user:", session.user.email);
+      
+      let updateData;
+      try {
+        updateData = await request.json();
+      } catch (jsonError) {
+        console.error("❌ Invalid JSON in request body:", jsonError.message);
+        throw new Error("INVALID_JSON");
+      }
+      
+      console.log("📝 Update data received:", Object.keys(updateData));
+      const { name, email, phone, address, preferences } = updateData;
+
+      // Validate email format if being updated
+      if (email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          throw new Error("INVALID_EMAIL");
+        }
+
+        // Check if email is already taken by another user
+        if (email !== session.user.email) {
+          console.log("🔍 Checking if email is available:", email);
+          const existingUser = await prisma.user.findUnique({
+            where: { email }
+          });
+          
+          if (existingUser) {
+            throw new Error("EMAIL_TAKEN");
+          }
+        }
+      }
+
+      // Validate Sri Lankan phone number format if being updated
+      if (phone) {
+        const phoneRegex = /^0\d{9}$/;
+        if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+          throw new Error("INVALID_PHONE");
+        }
+      }
+
+      // Update user data
+      console.log("📝 Updating user in database...");
+      const updatedUser = await prisma.user.update({
+        where: {
+          email: session.user.email
+        },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(email !== undefined && { email }),
+          phone: phone || null,
+          address: address || null,
+          updatedAt: new Date()
+        },
+        include: {
+          addresses: true,
+          orders: {
+            include: {
+              orderItems: {
+                include: {
+                  product: true,
+                  variant: true
+                }
+              },
+              delivery: true
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          },
+          wishlist: {
+            include: {
+              variants: true,
+              brand: true,
+              category: true
+            }
+          },
+          reviews: {
+            include: {
+              product: true
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          },
+          _count: {
+            select: {
+              orders: true,
+              reviews: true,
+              wishlist: true
+            }
+          }
+        }
+      });
+
+      if (!updatedUser) {
+        throw new Error("USER_NOT_FOUND");
+      }
+
+      // Calculate stats
+      const totalSpent = updatedUser.orders
+        .filter(order => order.status === 'DELIVERED')
+        .reduce((sum, order) => sum + order.total, 0);
+
+      const memberSince = updatedUser.createdAt;
+      const memberYears = new Date().getFullYear() - memberSince.getFullYear();
+
+      // Get recent activity
+      const recentActivity = [];
+      
+      updatedUser.orders.slice(0, 5).forEach(order => {
+        recentActivity.push({
+          id: `order-${order.id}`,
+          type: 'order',
+          title: `Order ${order.confirmationNumber} ${order.status.toLowerCase()}`,
+          description: `${order.orderItems.length} item${order.orderItems.length !== 1 ? 's' : ''} • $${order.total.toFixed(2)}`,
+          date: order.updatedAt,
+          status: order.status.toLowerCase(),
+          icon: 'package'
+        });
+      });
+
+      updatedUser.reviews.slice(0, 3).forEach(review => {
+        recentActivity.push({
+          id: `review-${review.id}`,
+          type: 'review',
+          title: `Reviewed ${review.product.name}`,
+          description: `${review.rating} star${review.rating !== 1 ? 's' : ''} • "${review.title}"`,
+          date: review.createdAt,
+          rating: review.rating,
+          icon: 'star'
+        });
+      });
+
+      recentActivity.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      const userData = {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        image: updatedUser.image,
+        role: updatedUser.role,
+        loyaltyPoints: updatedUser.loyaltyPoints,
+        loyaltyLevel: updatedUser.loyaltyLevel,
+        memberSince: updatedUser.createdAt,
+        memberYears,
+        addresses: updatedUser.addresses,
+        stats: {
+          totalOrders: updatedUser._count.orders,
+          totalSpent: totalSpent,
+          totalReviews: updatedUser._count.reviews,
+          wishlistItems: updatedUser._count.wishlist,
+          loyaltyPoints: updatedUser.loyaltyPoints
+        },
+        recentOrders: updatedUser.orders.slice(0, 5).map(order => ({
+          id: order.id,
+          confirmationNumber: order.confirmationNumber,
+          status: order.status,
+          total: order.total,
+          itemCount: order.orderItems.length,
+          createdAt: order.createdAt,
+          trackingNumber: order.delivery?.trackingNumber
+        })),
+        wishlist: updatedUser.wishlist.map(product => ({
+          id: product.id,
+          name: product.name,
+          price: product.variants[0]?.price || 0,
+          images: product.images,
+          brand: product.brand.name,
+          category: product.category.name,
+          inStock: product.variants.some(v => v.inventoryLevels?.some(i => i.stock > 0))
+        })),
+        recentActivity: recentActivity.slice(0, 10),
+        preferences: {
+          emailNotifications: true,
+          pushNotifications: true,
+          marketingEmails: false
+        }
+      };
+
+      return userData;
+    });
+
+    console.log("✅ User updated successfully");
+    return NextResponse.json(result);
+
+  } catch (error) {
+    console.error("❌ Error updating user:", error);
+    
+    // Handle specific error types
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    } else if (error.message === "INVALID_JSON") {
+      return NextResponse.json({ error: "Invalid request data" }, { status: 400 });
+    } else if (error.message === "INVALID_EMAIL") {
+      return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
+    } else if (error.message === "EMAIL_TAKEN") {
+      return NextResponse.json({ error: "Email already taken" }, { status: 400 });
+    } else if (error.message === "INVALID_PHONE") {
+      return NextResponse.json({ 
+        error: "Phone number must be exactly 10 digits starting with 0 (Sri Lankan format)" 
+      }, { status: 400 });
+    } else if (error.message === "USER_NOT_FOUND") {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    
+    // Database connection errors
+    if (error.message.includes("Database connection failed") || 
+        error.message.includes("Operation failed after")) {
+      return NextResponse.json(
+        { 
+          error: "Database temporarily unavailable. Please try again in a moment.", 
+          retryAfter: 5,
+          details: "Connection issue"
+        },
+        { status: 503 }
+      );
+    }
+    
+    // Generic error
+    return NextResponse.json(
+      { error: "Failed to update user profile", details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE method for deleting user account
+export async function DELETE() {
+  try {
+    console.log("🚀 Starting user DELETE API");
+    
+    // Ensure robust database connection
+    const connectionEstablished = await ensureConnection();
+    if (!connectionEstablished) {
+      console.error("❌ Failed to establish database connection");
+      return NextResponse.json(
+        { error: "Database connection failed", retry: true },
+        { status: 503 }
+      );
+    }
+    
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    console.log("🗑️ Deleting user:", session.user.email);
+    
+    // Delete user with retry logic
+    try {
+      await prisma.user.delete({
+        where: {
+          email: session.user.email
+        }
+      });
+    } catch (deleteError) {
+      console.error("❌ User deletion failed:", deleteError.message);
+      await ensureConnection();
+      await prisma.user.delete({
+        where: {
+          email: session.user.email
+        }
+      });
+    }
+
+    console.log("✅ User deleted successfully");
+    return NextResponse.json({ message: "User account deleted successfully" });
+
+  } catch (error) {
+    console.error("❌ Error deleting user:", error);
+    
+    // Always attempt to disconnect on error
+    try {
+      await prisma.$disconnect();
+    } catch (disconnectError) {
+      console.error("Prisma disconnect error:", disconnectError);
+    }
+    
+    return NextResponse.json(
+      { error: "Failed to delete user account", details: error.message },
+      { status: 500 }
+    );
+  }
+}

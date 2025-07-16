@@ -163,15 +163,15 @@ export async function GET(request) {
 
   } catch (error) {
     console.error('❌ API Error:', error);
+    
     return NextResponse.json(
       { 
         success: false, 
         data: [],
-        error: 'API request failed',
-        details: error.message,
-        dataSource: 'none'
+        error: 'Database connection failed',
+        details: error.message
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
 }

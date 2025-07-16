@@ -59,11 +59,37 @@ export default function CartPage() {
     console.log('  - URL sessionId:', urlSessionId);
     console.log('  - Session status:', status);
     
+    // Always force a cart refresh when cart page loads
+    console.log('📍 Cart page loaded, forcing cart refresh...');
+    fetchCart();
+    
     if (urlSessionId) {
-      console.log('📍 URL sessionId detected, forcing cart refresh...');
-      fetchCart();
+      console.log('📍 URL sessionId detected, additional cart refresh...');
+      // Small delay to ensure the first refresh completes
+      setTimeout(() => {
+        fetchCart();
+      }, 200);
     }
   }, [urlSessionId, fetchCart]);
+
+  // Additional effect to force refresh when items seem stale
+  useEffect(() => {
+    if (items.length > 0) {
+      console.log('🔍 Cart items detected, validating freshness...');
+      console.log('Current items:', items.map(item => ({ 
+        id: item.id, 
+        name: item.variant?.product?.name,
+        quantity: item.quantity 
+      })));
+      
+      // If we suspect stale data (this can be enhanced with more sophisticated checks)
+      const hasStaleData = items.some(item => !item.id || item.id.length !== 24);
+      if (hasStaleData) {
+        console.log('⚠️ Detected potentially stale cart data, refreshing...');
+        fetchCart();
+      }
+    }
+  }, [items, fetchCart]);
 
   // Animation variants
   const fadeIn = {
@@ -90,70 +116,44 @@ export default function CartPage() {
   // They'll be prompted to register/login when they try to checkout
 
   const handleQuantityChange = async (itemId, newQuantity) => {
-    if (newQuantity < 1) return;
+    console.log('� Cart Page: handleQuantityChange called', { itemId, newQuantity });
     
-    console.log('🔧 DEBUG: handleQuantityChange called');
-    console.log('  - itemId:', itemId, '(type:', typeof itemId, ')');
-    console.log('  - newQuantity:', newQuantity);
-    console.log('  - urlSessionId:', urlSessionId);
-    console.log('  - Current cart items:', items.map(item => ({ 
+    if (newQuantity < 1) {
+      console.log('🛒 Cart Page: Invalid quantity, removing item');
+      return handleRemoveItem(itemId);
+    }
+    
+    console.log('🛒 Cart Page: Current cart items:', items.map(item => ({ 
       id: item.id, 
       name: item.variant?.product?.name, 
       quantity: item.quantity 
     })));
     
     try {
+      console.log('� Cart Page: Calling updateCartItem...');
       const result = await updateCartItem(itemId, newQuantity);
-      console.log('🔧 DEBUG: updateCartItem result:', result);
+      console.log('🛒 Cart Page: updateCartItem result:', result);
       
-      if (!result.success) {
-        console.error('❌ Failed to update cart item:', result.error);
-        
-        // Add more debugging
-        console.log('🔍 DEBUG: Item not found. Let me check what\'s in the backend...');
-        
-        // Check if this is a "Cart item not found" error
-        if (result.error && result.error.includes('Cart item not found')) {
-          console.log('🔄 Attempting automatic recovery...');
-          
-          // Try to refresh cart first
-          try {
-            await fetchCart();
-            console.log('✅ Cart refreshed. Current items after refresh:', items.length);
-            
-            // Check if the item exists after refresh
-            const refreshedItem = items.find(item => item.id === itemId);
-            if (refreshedItem) {
-              console.log('🔄 Item found after refresh, trying update again...');
-              // Retry the update once
-              const retryResult = await updateCartItem(itemId, newQuantity);
-              if (retryResult.success) {
-                console.log('✅ Update succeeded on retry');
-                return; // Success!
-              } else {
-                console.log('❌ Update failed on retry:', retryResult.error);
-              }
-            } else {
-              console.log('⚠️ Item no longer exists in cart after refresh');
-            }
-            
-            // Show user-friendly message
-            alert(`The item was not found in your cart. This may happen if the item was removed from another browser tab. Your cart has been refreshed.`);
-            
-          } catch (refreshError) {
-            console.error('❌ Failed to refresh cart:', refreshError);
-            alert(`Error: ${result.error || 'Failed to update item quantity'}. Please refresh the page.`);
-          }
-        } else {
-          // Other types of errors
-          alert(`Error: ${result.error || 'Failed to update item quantity'}. Please try again.`);
-        }
+      if (result.success) {
+        console.log('✅ Cart Page: Quantity updated successfully');
       } else {
-        console.log('✅ Cart item updated successfully');
+        console.error('❌ Cart Page: Failed to update quantity:', result.error);
+        
+        // Handle specific error codes
+        if (result.code === 'SESSION_MISMATCH') {
+          alert('Your cart session has changed. Your cart has been refreshed.');
+          // Cart will auto-refresh via CartProvider
+        } else if (result.code === 'ITEM_NOT_FOUND') {
+          // Don't show alert for item not found - it's automatically removed
+          console.log('🛒 Cart Page: Item was automatically removed from cart');
+        } else {
+          alert(`Failed to update quantity: ${result.error || 'Unknown error'}`);
+        }
       }
+      
     } catch (error) {
-      console.error('❌ Error updating cart item:', error);
-      alert('Error: Unable to update item quantity. Please try again.');
+      console.error('🛒 Cart Page: Error updating quantity:', error);
+      alert('Failed to update item quantity. Please try again.');
     }
   };
 

@@ -24,6 +24,23 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "TechZone - PC Components & Hardware Store",
   description: "Your one-stop shop for PC components, hardware, and custom build services",
+  manifest: "/manifest.json",
+  robots: "index, follow",
+  // Preload critical resources
+  other: {
+    'link': [
+      { rel: 'preload', href: '/fonts/geist-sans.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
+      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+      { rel: 'dns-prefetch', href: 'https://api.techzone.com' },
+    ]
+  }
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#000000',
 };
 
 export default function RootLayout({ children }) {
