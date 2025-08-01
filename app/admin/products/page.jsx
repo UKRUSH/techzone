@@ -3,7 +3,7 @@
 // Updated delete and edit functionality - v2.0
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +36,31 @@ import {
   Bolt,
   AlertCircle
 } from "lucide-react";
+import { useRouter } from 'next/navigation';
+
+// Utility function to safely parse JSON responses
+const safeJsonParse = async (response) => {
+  try {
+    // Check if response body has already been consumed
+    if (response.bodyUsed) {
+      console.warn('⚠️ Response body already consumed');
+      return { error: `HTTP ${response.status}: ${response.statusText || 'Response body already consumed'}` };
+    }
+    
+    const text = await response.text();
+    console.log('🔍 Response text:', text);
+    
+    if (!text || text.trim() === '') {
+      return { error: `HTTP ${response.status}: ${response.statusText || 'Empty response'}` };
+    }
+    
+    const parsed = JSON.parse(text);
+    return parsed;
+  } catch (error) {
+    console.error('❌ Failed to parse JSON response:', error);
+    return { error: `HTTP ${response.status}: ${response.statusText || 'Invalid JSON response'}` };
+  }
+};
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([]);
@@ -69,11 +94,24 @@ export default function AdminProductsPage() {
       setLoading(true);
       // Add timestamp to prevent caching
       const timestamp = Date.now();
-      const response = await fetch(`/api/products?_t=${timestamp}`);
+      const response = await fetch(`/api/products?_t=${timestamp}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
       if (response.ok) {
         const result = await response.json();
-        setProducts(result.success ? result.data : []);
-        console.log(`🔄 Refreshed products list: ${result.data?.length || 0} products`);
+        const products = result.success ? result.data : [];
+        setProducts(products);
+        console.log(`🔄 Refreshed products list: ${products.length} products`);
+        
+        // Log first product's stock for debugging
+        if (products.length > 0) {
+          const firstProduct = products[0];
+          const stock = firstProduct.variants?.[0]?.inventoryLevels?.[0]?.stock;
+          console.log(`📦 First product stock: ${stock}`);
+        }
       } else {
         console.error("Failed to fetch products from database");
         setProducts([]);
@@ -159,46 +197,75 @@ export default function AdminProductsPage() {
       }
 
       console.log('📦 Saving product to MongoDB database...');
+      
+      const requestData = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        price: parseFloat(formData.price) || 0,
+        category: formData.category,
+        brand: formData.brand,
+        stock: parseInt(formData.stock) || 0,
+        variants: [{
+          sku: `${formData.name.replace(/\s+/g, '-').toUpperCase()}-001`,
+          price: parseFloat(formData.price) || 0,
+          attributes: {
+            stock: parseInt(formData.stock) || 0,
+            imageUrl: formData.imageUrl.trim()
+          }
+        }]
+      };
+      
+      console.log('🔍 Admin: Request data being sent:', JSON.stringify(requestData, null, 2));
+      
       const response = await fetch('/api/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          description: formData.description.trim(),
-          category: formData.category,
-          brand: formData.brand,
-          variants: [{
-            sku: `${formData.name.replace(/\s+/g, '-').toUpperCase()}-001`,
-            price: parseFloat(formData.price) || 0,
-            attributes: {
-              stock: parseInt(formData.stock) || 0,
-              imageUrl: formData.imageUrl.trim()
-            }
-          }]
-        }),
+        body: JSON.stringify(requestData),
       });
 
+      console.log('🔍 Admin: Response status:', response.status, response.statusText);
+      console.log('🔍 Admin: Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (response.ok) {
-        const result = await response.json();
-        setFormData({
-          name: '',
-          description: '',
-          price: '',
-          category: '',
-          brand: '',
-          stock: '',
-          imageUrl: ''
-        });
-        setShowAddForm(false);
-        fetchProducts();
-        alert('Product created successfully!');
-        console.log('✅ Product created:', result.data);
+        try {
+          const result = await response.json();
+          console.log('✅ Admin: Successful response:', result);
+          
+          if (result.success) {
+            setFormData({
+              name: '',
+              description: '',
+              price: '',
+              category: '',
+              brand: '',
+              stock: '',
+              imageUrl: ''
+            });
+            setShowAddForm(false);
+            await fetchProducts(); // Force refresh
+            alert('Product created successfully!');
+            console.log('✅ Product created:', result.data?.name || formData.name);
+          } else {
+            console.error('❌ Create failed with success=false:', result);
+            alert(`Error: ${result.error || result.message || 'Create operation failed'}`);
+          }
+        } catch (parseError) {
+          console.error('❌ Failed to parse success response:', parseError);
+          alert('Product might have been created, but response was invalid. Refreshing...');
+          await fetchProducts();
+        }
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.error || 'Failed to create product'}`);
+        console.log('❌ Create failed, response status:', response.status, response.statusText);
+        console.log('❌ Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        // Use safeJsonParse for better error handling
+        const error = await safeJsonParse(response);
         console.error('❌ API Error:', error);
+        
+        const errorMessage = error.error || error.message || `HTTP ${response.status}: ${response.statusText || 'Failed to create product'}`;
+        alert(`Error: ${errorMessage}`);
       }
     } catch (error) {
       console.error('❌ Error creating product:', error);
@@ -209,7 +276,18 @@ export default function AdminProductsPage() {
   };
 
   const handleEdit = (product) => {
+    console.log('📝 Opening edit form for product:', product.name);
+    console.log('📦 Product structure:', {
+      variants: product.variants?.length,
+      firstVariantId: product.variants?.[0]?.id,
+      inventoryLevels: product.variants?.[0]?.inventoryLevels?.length,
+      currentStock: product.variants?.[0]?.inventoryLevels?.[0]?.stock
+    });
+    
     setEditingProduct(product);
+    
+    const stockValue = (product.variants?.[0]?.inventoryLevels?.[0]?.stock || 0).toString();
+    console.log(`📦 Loading stock value: ${stockValue}`);
     
     setFormData({
       name: product.name || '',
@@ -217,7 +295,7 @@ export default function AdminProductsPage() {
       price: (product.variants?.[0]?.price || 0).toString(),
       category: typeof product.category === 'object' ? product.category?.name : product.category || '',
       brand: typeof product.brand === 'object' ? product.brand?.name : product.brand || '',
-      stock: (product.variants?.[0]?.attributes?.stock || 0).toString(),
+      stock: stockValue,
       imageUrl: product.variants?.[0]?.attributes?.imageUrl || ''
     });
     setShowEditForm(true);
@@ -257,28 +335,43 @@ export default function AdminProductsPage() {
       }
 
       console.log('📝 Updating product in MongoDB database...');
+      
+      const requestData = {
+        id: editingProduct.id,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        category: formData.category,
+        brand: formData.brand,
+        price: parseFloat(formData.price) || 0,
+        stock: parseInt(formData.stock) || 0,
+        imageUrl: formData.imageUrl.trim()
+      };
+      
+      console.log('🔍 Admin: Request data being sent:', requestData);
+      
       const response = await fetch('/api/products', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          id: editingProduct.id,
-          name: formData.name.trim(),
-          description: formData.description.trim(),
-          category: formData.category,
-          brand: formData.brand,
-          price: parseFloat(formData.price) || 0,
-          stock: parseInt(formData.stock) || 0,
-          imageUrl: formData.imageUrl.trim()
-        }),
+        body: JSON.stringify(requestData),
       });
+      
+      console.log('🔍 Admin: Response status:', response.status, response.statusText);
+      console.log('🔍 Admin: Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (response.ok) {
         try {
           const result = await response.json();
           
           if (result.success) {
+            console.log('✅ Update successful, updated product data:', result.data);
+            
+            // Log the stock value from the response
+            const responseStock = result.data?.variants?.[0]?.inventoryLevels?.[0]?.stock;
+            console.log(`📦 Updated stock in response: ${responseStock}`);
+            console.log(`📦 Original stock input: ${formData.stock}`);
+            
             setFormData({
               name: '',
               description: '',
@@ -290,7 +383,11 @@ export default function AdminProductsPage() {
             });
             setShowEditForm(false);
             setEditingProduct(null);
-            await fetchProducts(); // Refresh the products list
+            
+            // Force refresh to ensure we get the latest data
+            console.log('🔄 Force refreshing products list after stock update...');
+            await fetchProducts(); 
+            
             alert('Product updated successfully!');
             console.log('✅ Product updated:', result.data?.name || formData.name);
           } else {
@@ -303,9 +400,12 @@ export default function AdminProductsPage() {
           await fetchProducts();
         }
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.error || 'Failed to update product'}`);
+        console.log('❌ Update failed, response status:', response.status, response.statusText);
+        const error = await safeJsonParse(response);
         console.error('❌ API Error:', error);
+        
+        const errorMessage = error.error || error.message || `HTTP ${response.status}: ${response.statusText || 'Failed to update product'}`;
+        alert(`Error: ${errorMessage}`);
       }
     } catch (error) {
       console.error('❌ Error updating product:', error);
@@ -408,9 +508,12 @@ export default function AdminProductsPage() {
           alert(`Error: ${result.error || 'Failed to clear all products'}`);
         }
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.error || 'Failed to clear all products'}`);
+        console.log('❌ Clear failed, response status:', response.status, response.statusText);
+        const error = await safeJsonParse(response);
         console.error('❌ API Error:', error);
+        
+        const errorMessage = error.error || error.message || `HTTP ${response.status}: ${response.statusText || 'Failed to clear all products'}`;
+        alert(`Error: ${errorMessage}`);
       }
       
     } catch (error) {
@@ -1344,11 +1447,11 @@ export default function AdminProductsPage() {
                             {/* Status Badge */}
                             <div className="absolute top-4 right-4">
                               <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                (product.variants?.[0]?.attributes?.stock || 0) > 0 
+                                (product.variants?.[0]?.inventoryLevels?.[0]?.stock || 0) > 0 
                                   ? 'bg-yellow-500/30 text-yellow-300 border border-yellow-400/50' 
                                   : 'bg-red-500/30 text-red-300 border border-red-400/50'
                               }`}>
-                                {(product.variants?.[0]?.attributes?.stock || 0) > 0 ? 'In Stock' : 'Out of Stock'}
+                                {(product.variants?.[0]?.inventoryLevels?.[0]?.stock || 0) > 0 ? 'In Stock' : 'Out of Stock'}
                               </div>
                             </div>
                           </div>

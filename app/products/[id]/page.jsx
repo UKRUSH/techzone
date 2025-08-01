@@ -22,7 +22,7 @@ import {
   Check,
   AlertCircle
 } from "lucide-react";
-import { useCart } from "@/components/providers/CartProvider";
+import { useCart } from "@/components/providers/CartProvider_clean";
 import { useSession } from "next-auth/react";
 import { toast } from "@/components/ui/toast";
 

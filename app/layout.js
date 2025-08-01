@@ -2,7 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/providers/AuthProvider";
 import ReactQueryProvider from "@/components/providers/ReactQueryProvider";
-import { CartProvider } from "@/components/providers/CartProvider";
+import { CartProvider } from "@/components/providers/CartProvider_clean";
 import { LoadingProvider } from "@/components/providers/LoadingProvider";
 import { PageStateProvider } from "@/components/providers/PageStateProvider";
 import { InstantDataProvider } from "@/components/providers/InstantDataProvider";

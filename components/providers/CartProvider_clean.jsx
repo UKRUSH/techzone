@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useReducer, useEffect } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 
 const CartContext = createContext();
@@ -106,7 +106,7 @@ export function CartProvider({ children }) {
   });
 
   // Fetch cart from API
-  const fetchCart = async () => {
+  const fetchCart = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     
     try {
@@ -117,9 +117,29 @@ export function CartProvider({ children }) {
       
       if (response.ok) {
         const data = await response.json();
-        const cartItems = Array.isArray(data) ? data : (data.items || []);
+        console.log('🛒 CartProvider: Raw API response:', data);
+        
+        // Handle different response formats
+        let cartItems = [];
+        if (data.success && Array.isArray(data.data)) {
+          // New API format: { success: true, data: [...] }
+          cartItems = data.data;
+        } else if (Array.isArray(data)) {
+          // Direct array format
+          cartItems = data;
+        } else if (data.items && Array.isArray(data.items)) {
+          // Object with items property
+          cartItems = data.items;
+        }
+        
         dispatch({ type: 'SET_CART', payload: cartItems });
         console.log(`✅ Fetched ${cartItems.length} cart items`);
+        console.log('🛒 Cart items details:', cartItems.map(item => ({
+          id: item.id,
+          productName: item.variant?.product?.name,
+          quantity: item.quantity,
+          price: item.variant?.price
+        })));
       } else {
         console.error('Failed to fetch cart:', response.status);
         dispatch({ type: 'SET_CART', payload: [] });
@@ -130,7 +150,32 @@ export function CartProvider({ children }) {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, [status]); // Only depend on status
+
+  // Create a custom event for cart updates
+  const broadcastCartUpdate = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
+    }
+  }, []);
+
+  // Listen for cart updates from other components
+  useEffect(() => {
+    const handleCartUpdate = () => {
+      console.log('🔄 Cart update broadcasted, refreshing...');
+      // Call fetchCart directly without dependency
+      if (fetchCart) {
+        fetchCart();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cartUpdated', handleCartUpdate);
+      return () => {
+        window.removeEventListener('cartUpdated', handleCartUpdate);
+      };
+    }
+  }, []); // Remove fetchCart dependency to avoid initialization issues
 
   const addToCart = async (variantId, quantity = 1) => {
     try {
@@ -163,6 +208,16 @@ export function CartProvider({ children }) {
         // Handle the API response structure { success: true, data: cartItem }
         const cartItem = result.success ? result.data : result;
         dispatch({ type: 'ADD_ITEM', payload: cartItem });
+        
+        // Broadcast cart update to all listeners
+        broadcastCartUpdate();
+        
+        // Force refresh cart state to ensure consistency
+        console.log('🔄 Triggering cart refresh after add...');
+        setTimeout(() => {
+          fetchCart();
+        }, 200); // Small delay to ensure backend is updated
+        
         return { success: true, item: cartItem };
       } else {
         let errorMessage = 'Unknown error';
@@ -278,7 +333,7 @@ export function CartProvider({ children }) {
     if (status !== 'loading') {
       fetchCart();
     }
-  }, [status]);
+  }, [status, fetchCart]);
 
   // Calculate totals
   const cartTotal = state.items.reduce((total, item) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useReducer, useEffect } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 
 const CartContext = createContext();
@@ -75,7 +75,7 @@ export function CartProvider({ children }) {
   const { data: session, status } = useSession();
   const [state, dispatch] = useReducer(cartReducer, { items: [], loading: false });
 
-  const fetchCart = async () => {
+  const fetchCart = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const sessionId = getGuestSessionId();
@@ -84,8 +84,23 @@ export function CartProvider({ children }) {
       
       if (response.ok) {
         const data = await response.json();
-        const cartItems = Array.isArray(data) ? data : (data.items || []);
+        console.log('🛒 CartProvider: Raw API response:', data);
+        
+        // Handle different response formats
+        let cartItems = [];
+        if (data.success && Array.isArray(data.data)) {
+          // New API format: { success: true, data: [...] }
+          cartItems = data.data;
+        } else if (Array.isArray(data)) {
+          // Direct array format
+          cartItems = data;
+        } else if (data.items && Array.isArray(data.items)) {
+          // Object with items property
+          cartItems = data.items;
+        }
+        
         dispatch({ type: 'SET_CART', payload: cartItems });
+        console.log(`✅ Fetched ${cartItems.length} cart items`);
       } else {
         dispatch({ type: 'SET_CART', payload: [] });
       }
@@ -95,7 +110,7 @@ export function CartProvider({ children }) {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, [status]); // Only depend on status
 
   const addToCart = async (variantId, quantity = 1) => {
     try {
@@ -309,7 +324,7 @@ export function CartProvider({ children }) {
       console.log('🔄 CartProvider: Forcing fresh cart fetch on load');
       fetchCart();
     }
-  }, [status]);
+  }, [status, fetchCart]);
 
   // Additional effect to handle session changes and refresh cart
   useEffect(() => {
@@ -324,7 +339,7 @@ export function CartProvider({ children }) {
         fetchCart();
       }, 100);
     }
-  }, [session?.user?.email, status]); // Trigger when user email changes (login/logout)
+  }, [session?.user?.email, status, fetchCart]); // Trigger when user email changes (login/logout)
 
   const cartTotal = state.items.reduce((total, item) => {
     const price = item.variant?.price || 0;

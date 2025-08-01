@@ -87,7 +87,14 @@ export async function GET(request) {
           id: true,
           sku: true,
           price: true,
-          attributes: true
+          compareAtPrice: true,
+          attributes: true,
+          inventoryLevels: {
+            select: {
+              stock: true,
+              reserved: true
+            }
+          }
         },
         take: 3 // Limit variants per product for faster loading
       }
@@ -111,13 +118,43 @@ export async function GET(request) {
 
       console.log(`✅ Loaded ${products.length} products from database`);
 
+      // Calculate real-time stock for each product
+      const productsWithStock = products.map(product => {
+        // Calculate total available stock across all variants
+        const totalStock = product.variants.reduce((total, variant) => {
+          const variantStock = variant.inventoryLevels.reduce((vTotal, inventory) => {
+            return vTotal + (inventory.stock - inventory.reserved);
+          }, 0);
+          return total + Math.max(0, variantStock);
+        }, 0);
+
+        // Add stock information to product
+        return {
+          ...product,
+          totalStock,
+          // Also add primary variant info for easier access
+          price: product.variants[0]?.price || 0,
+          compareAtPrice: product.variants[0]?.compareAtPrice || null,
+          // Remove inventory levels from variants to keep response clean
+          variants: product.variants.map(variant => ({
+            id: variant.id,
+            sku: variant.sku,
+            price: variant.price,
+            compareAtPrice: variant.compareAtPrice,
+            attributes: variant.attributes
+          }))
+        };
+      });
+
+      console.log(`📦 Calculated stock for ${productsWithStock.length} products`);
+
       // Calculate estimated total for large datasets
-      const estimatedTotal = totalProducts || (products.length === limit ? (page * limit) + 1 : page * limit);
+      const estimatedTotal = totalProducts || (productsWithStock.length === limit ? (page * limit) + 1 : page * limit);
 
       // Prepare response
       const response = {
         success: true,
-        data: products,
+        data: productsWithStock,
         pagination: {
           page,
           limit,
@@ -131,7 +168,15 @@ export async function GET(request) {
         response.metadata = metadata;
       }
 
-      return NextResponse.json(response);
+      const jsonResponse = NextResponse.json(response);
+      
+      // Add cache control headers to prevent caching issues in admin
+      jsonResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      jsonResponse.headers.set('Pragma', 'no-cache');
+      jsonResponse.headers.set('Expires', '0');
+      jsonResponse.headers.set('Surrogate-Control', 'no-store');
+
+      return jsonResponse;
 
     } catch (dbError) {
       console.error('❌ Database connection failed:', dbError.message);
@@ -173,5 +218,416 @@ export async function GET(request) {
       },
       { status: 503 }
     );
+  }
+}
+
+// POST handler - Create a new product
+export async function POST(request) {
+  try {
+    const data = await request.json();
+    console.log('📝 API POST: Creating product:', JSON.stringify(data, null, 2));
+
+    // Validate required fields
+    if (!data.name || !data.price) {
+      console.log('❌ API POST: Missing required fields');
+      return NextResponse.json({
+        success: false,
+        error: 'Missing required fields: name, price'
+      }, { status: 400 });
+    }
+
+    // Handle category - convert name to ID if needed
+    let categoryId = data.categoryId;
+    if (data.category && !categoryId) {
+      console.log(`🔍 API POST: Looking for category: ${data.category}`);
+      const category = await prisma.category.findFirst({
+        where: { name: data.category }
+      });
+      if (!category) {
+        console.log(`❌ API POST: Category '${data.category}' not found`);
+        return NextResponse.json({
+          success: false,
+          error: `Category '${data.category}' not found`
+        }, { status: 400 });
+      }
+      categoryId = category.id;
+      console.log(`✅ API POST: Found category ID: ${categoryId}`);
+    }
+    }
+
+    // Handle brand - convert name to ID if needed  
+    let brandId = data.brandId;
+    if (data.brand && !brandId) {
+      console.log(`🔍 API POST: Looking for brand: ${data.brand}`);
+      const brand = await prisma.brand.findFirst({
+        where: { name: data.brand }
+      });
+      if (!brand) {
+        console.log(`❌ API POST: Brand '${data.brand}' not found`);
+        return NextResponse.json({
+          success: false,
+          error: `Brand '${data.brand}' not found`
+        }, { status: 400 });
+      }
+      brandId = brand.id;
+      console.log(`✅ API POST: Found brand ID: ${brandId}`);
+    }
+
+    if (!categoryId || !brandId) {
+      console.log(`❌ API POST: Missing IDs - Category: ${categoryId}, Brand: ${brandId}`);
+      return NextResponse.json({
+        success: false,
+        error: 'Category and brand are required'
+      }, { status: 400 });
+    }
+
+    // Create the product
+    const product = await prisma.product.create({
+      data: {
+        name: data.name.trim(),
+        description: data.description?.trim() || '',
+        categoryId: categoryId,
+        brandId: brandId,
+        isActive: data.isActive !== false
+      },
+      include: {
+        category: { select: { id: true, name: true } },
+        brand: { select: { id: true, name: true } }
+      }
+    });
+
+    console.log('✅ Product created:', product.id, product.name);
+
+    // Create default variant
+    const variant = await prisma.productVariant.create({
+      data: {
+        productId: product.id,
+        sku: data.variants?.[0]?.sku || `${product.name.replace(/\s+/g, '-').toUpperCase()}-001`,
+        price: parseFloat(data.price) || parseFloat(data.variants?.[0]?.price) || 0,
+        compareAtPrice: data.compareAtPrice || null,
+        attributes: data.variants?.[0]?.attributes || {}
+      }
+    });
+
+    console.log('✅ Product variant created:', variant.id);
+
+    // Create inventory level if stock is provided
+    const stockAmount = parseInt(data.stock) || parseInt(data.variants?.[0]?.attributes?.stock) || 0;
+    if (stockAmount > 0) {
+      // Get or create default location
+      let defaultLocation = await prisma.location.findFirst({
+        where: { name: 'Main Warehouse' }
+      });
+
+      if (!defaultLocation) {
+        defaultLocation = await prisma.location.create({
+          data: {
+            name: 'Main Warehouse',
+            address: 'Default location'
+          }
+        });
+        console.log('✅ Created default location');
+      }
+
+      const inventory = await prisma.inventory.create({
+        data: {
+          variantId: variant.id,
+          locationId: defaultLocation.id,
+          stock: stockAmount,
+          reserved: 0,
+          incoming: 0
+        }
+      });
+
+      console.log('✅ Inventory created with stock:', stockAmount);
+    }
+
+    // Get the complete product with all relations
+    const completeProduct = await prisma.product.findUnique({
+      where: { id: product.id },
+      include: {
+        category: { select: { id: true, name: true } },
+        brand: { select: { id: true, name: true } },
+        variants: {
+          include: {
+            inventoryLevels: {
+              select: {
+                id: true,
+                stock: true,
+                reserved: true,
+                locationId: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: completeProduct
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating product:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to create product',
+      details: error.message
+    }, { status: 500 });
+  }
+}
+
+// PUT handler - Update an existing product  
+export async function PUT(request) {
+  try {
+    // For now, skip auth check to focus on the main issue
+    // TODO: Add authentication check for production
+    
+    const data = await request.json();
+    console.log('� API PUT: Received data:', JSON.stringify(data, null, 2));
+    console.log('🔍 API PUT: Request URL:', request.url);
+    console.log('🔍 API PUT: Request headers:', Object.fromEntries(request.headers.entries()));
+
+    // Validate required fields
+    if (!data.id) {
+      return NextResponse.json({
+        success: false,
+        error: 'Product ID is required'
+      }, { status: 400 });
+    }
+
+    // Check if product exists with variants
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: data.id },
+      include: {
+        variants: true,
+        category: true,
+        brand: true
+      }
+    });
+
+    if (!existingProduct) {
+      return NextResponse.json({
+        success: false,
+        error: 'Product not found'
+      }, { status: 404 });
+    }
+
+    // Update the product
+    const updateData = {};
+    if (data.name !== undefined) updateData.name = data.name.trim();
+    if (data.description !== undefined) updateData.description = data.description?.trim() || '';
+    
+    // Handle category - convert name to ID if needed
+    if (data.category !== undefined) {
+      if (data.category && data.category !== '') {
+        const category = await prisma.category.findFirst({
+          where: { name: data.category }
+        });
+        if (category) {
+          updateData.categoryId = category.id;
+        } else {
+          return NextResponse.json({
+            success: false,
+            error: `Category '${data.category}' not found`
+          }, { status: 400 });
+        }
+      }
+    }
+    if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
+    
+    // Handle brand - convert name to ID if needed
+    if (data.brand !== undefined) {
+      if (data.brand && data.brand !== '') {
+        const brand = await prisma.brand.findFirst({
+          where: { name: data.brand }
+        });
+        if (brand) {
+          updateData.brandId = brand.id;
+        } else {
+          return NextResponse.json({
+            success: false,
+            error: `Brand '${data.brand}' not found`
+          }, { status: 400 });
+        }
+      }
+    }
+    if (data.brandId !== undefined) updateData.brandId = data.brandId;
+
+    // Update the main product
+    const updatedProduct = await prisma.product.update({
+      where: { id: data.id },
+      data: updateData
+    });
+
+    // Handle variant price update (update the first variant's price)
+    if (data.price !== undefined && existingProduct.variants.length > 0) {
+      const firstVariant = existingProduct.variants[0];
+      await prisma.productVariant.update({
+        where: { id: firstVariant.id },
+        data: { price: parseFloat(data.price) }
+      });
+    }
+
+    // Handle stock update (update the first variant's inventory)
+    if (data.stock !== undefined && existingProduct.variants.length > 0) {
+      const firstVariant = existingProduct.variants[0];
+      console.log('📦 Updating stock for variant:', firstVariant.id, 'New stock:', data.stock);
+      
+      // Check if inventory level exists for this variant
+      const existingInventory = await prisma.inventory.findFirst({
+        where: { variantId: firstVariant.id }
+      });
+
+      if (existingInventory) {
+        // Update existing inventory
+        await prisma.inventory.update({
+          where: { id: existingInventory.id },
+          data: { 
+            stock: parseInt(data.stock) || 0
+          }
+        });
+        console.log('✅ Updated existing inventory level');
+      } else {
+        // Create new inventory level - need to get a default location first
+        let defaultLocation = await prisma.location.findFirst({
+          where: { name: 'Main Warehouse' }
+        });
+
+        if (!defaultLocation) {
+          // Create default location if it doesn't exist
+          defaultLocation = await prisma.location.create({
+            data: {
+              name: 'Main Warehouse',
+              address: 'Default location'
+            }
+          });
+          console.log('✅ Created default location');
+        }
+
+        await prisma.inventory.create({
+          data: {
+            variantId: firstVariant.id,
+            locationId: defaultLocation.id,
+            stock: parseInt(data.stock) || 0,
+            reserved: 0,
+            incoming: 0
+          }
+        });
+        console.log('✅ Created new inventory level');
+      }
+    }
+
+    // Get the updated product with all relations
+    const product = await prisma.product.findUnique({
+      where: { id: data.id },
+      include: {
+        category: { select: { id: true, name: true } },
+        brand: { select: { id: true, name: true } },
+        variants: { 
+          include: {
+            inventoryLevels: {
+              select: {
+                id: true,
+                stock: true,
+                reserved: true,
+                locationId: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    console.log('✅ Product updated with inventory:', {
+      id: product.id,
+      name: product.name,
+      variantCount: product.variants.length,
+      firstVariantStock: product.variants[0]?.inventoryLevels[0]?.stock || 0
+    });
+
+    const response = NextResponse.json({
+      success: true,
+      data: product
+    });
+
+    // Add cache control headers to prevent caching issues
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    response.headers.set('Surrogate-Control', 'no-store');
+
+    return response;
+
+  } catch (error) {
+    console.error('❌ Error updating product:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to update product',
+      details: error.message
+    }, { status: 500 });
+  }
+}
+
+// DELETE handler - Delete a product
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const productId = searchParams.get('id');
+
+    console.log('🗑️ Deleting product with ID:', productId);
+
+    if (!productId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Product ID is required'
+      }, { status: 400 });
+    }
+
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, name: true }
+    });
+
+    if (!existingProduct) {
+      return NextResponse.json({
+        success: false,
+        error: 'Product not found',
+        code: 'PRODUCT_NOT_FOUND'
+      }, { status: 404 });
+    }
+
+    // Delete the product (this will cascade to related records)
+    await prisma.product.delete({
+      where: { id: productId }
+    });
+
+    console.log('✅ Product deleted:', existingProduct);
+
+    return NextResponse.json({
+      success: true,
+      data: existingProduct,
+      message: 'Product deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting product:', error);
+    
+    // Handle foreign key constraint errors
+    if (error.code === 'P2003') {
+      return NextResponse.json({
+        success: false,
+        error: 'Cannot delete product: it has related records (orders, cart items, etc.)',
+        details: error.message
+      }, { status: 409 });
+    }
+
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to delete product',
+      details: error.message
+    }, { status: 500 });
   }
 }

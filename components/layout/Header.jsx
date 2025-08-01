@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCart } from "@/components/providers/CartProvider";
+import { useCart } from "@/components/providers/CartProvider_clean";
 import { FastLink } from "@/components/navigation/FastNavigation";
 import { useSession, signOut } from "next-auth/react";
 

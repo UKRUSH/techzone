@@ -25,7 +25,7 @@ import {
   Mail,
   AlertCircle
 } from "lucide-react";
-import { useCart } from "@/components/providers/CartProvider";
+import { useCart } from "@/components/providers/CartProvider_clean";
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();

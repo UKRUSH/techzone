@@ -14,7 +14,7 @@ export async function GET(request, { params }) {
         brand: true,
         variants: {
           include: {
-            inventory: {
+            inventoryLevels: {
               include: {
                 location: true
               }
@@ -51,8 +51,8 @@ export async function GET(request, { params }) {
       : 0;
 
     const totalStock = product.variants.reduce((sum, variant) => {
-      return sum + variant.inventory.reduce((variantSum, level) => {
-        return variantSum + level.stock - level.reserved;
+      return sum + variant.inventoryLevels.reduce((variantSum, level) => {
+        return variantSum + Math.max(0, level.stock - level.reserved);
       }, 0);
     }, 0);
 

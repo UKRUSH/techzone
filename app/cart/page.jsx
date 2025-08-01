@@ -33,7 +33,7 @@ import {
   Clock,
   Sparkles
 } from "lucide-react";
-import { useCart } from "@/components/providers/CartProvider";
+import { useCart } from "@/components/providers/CartProvider_clean";
 
 export default function CartPage() {
   const { data: session, status } = useSession();
@@ -70,7 +70,7 @@ export default function CartPage() {
         fetchCart();
       }, 200);
     }
-  }, [urlSessionId, fetchCart]);
+  }, [urlSessionId]); // Remove fetchCart from dependencies
 
   // Additional effect to force refresh when items seem stale
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function CartPage() {
         fetchCart();
       }
     }
-  }, [items, fetchCart]);
+  }, [items]); // Remove fetchCart from dependencies
 
   // Animation variants
   const fadeIn = {
