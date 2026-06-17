@@ -69,11 +69,13 @@ export async function GET(request) {
       id: true,
       name: true,
       description: true,
+      images: true,
       createdAt: true,
       category: {
         select: {
           id: true,
-          name: true
+          name: true,
+          slug: true,
         }
       },
       brand: {
@@ -192,15 +194,14 @@ export async function GET(request) {
           totalPages: 0
         },
         error: 'Database connection failed',
-        message: 'MongoDB Atlas connection is currently unavailable. Please check your database configuration.',
+        message: 'Database connection unavailable. Please check your Neon PostgreSQL configuration.',
         dataSource: 'none',
         troubleshooting: {
           steps: [
-            'Check MongoDB Atlas cluster status at https://cloud.mongodb.com/',
-            'Verify your cluster is not paused or suspended',
-            'Check Network Access settings and IP whitelist',
-            'Verify database user credentials and permissions',
-            'Check if your internet connection allows MongoDB Atlas access'
+            'Check your Neon dashboard at https://console.neon.tech/',
+            'Verify the DATABASE_URL in your .env.local is correct',
+            'Ensure the Neon project is active and not suspended',
+            'Check that SSL mode is set to require in the connection string'
           ]
         }
       }, { status: 503 });
@@ -253,9 +254,8 @@ export async function POST(request) {
       categoryId = category.id;
       console.log(`✅ API POST: Found category ID: ${categoryId}`);
     }
-    }
 
-    // Handle brand - convert name to ID if needed  
+    // Handle brand - convert name to ID if needed
     let brandId = data.brandId;
     if (data.brand && !brandId) {
       console.log(`🔍 API POST: Looking for brand: ${data.brand}`);
@@ -286,6 +286,7 @@ export async function POST(request) {
       data: {
         name: data.name.trim(),
         description: data.description?.trim() || '',
+        images: data.imageUrl ? [data.imageUrl] : [],
         categoryId: categoryId,
         brandId: brandId,
         isActive: data.isActive !== false
@@ -455,6 +456,16 @@ export async function PUT(request) {
     }
     if (data.brandId !== undefined) updateData.brandId = data.brandId;
 
+    // Handle image URL — store in product.images[]
+    if (data.imageUrl !== undefined) {
+      const clean = (existingProduct.images || []).filter(
+        img => !img.includes('placehold.co') && !img.includes('via.placeholder.com')
+      );
+      updateData.images = data.imageUrl
+        ? [data.imageUrl, ...clean.filter(img => img !== data.imageUrl)]
+        : clean;
+    }
+
     // Update the main product
     const updatedProduct = await prisma.product.update({
       where: { id: data.id },
@@ -525,20 +536,20 @@ export async function PUT(request) {
       include: {
         category: { select: { id: true, name: true } },
         brand: { select: { id: true, name: true } },
-        variants: { 
+        variants: {
           include: {
             inventoryLevels: {
-              select: {
-                id: true,
-                stock: true,
-                reserved: true,
-                locationId: true
-              }
+              select: { id: true, stock: true, reserved: true, locationId: true }
             }
           }
         }
       }
     });
+    // Attach computed totalStock for convenience
+    const totalStock = product.variants.reduce((sum, v) =>
+      sum + v.inventoryLevels.reduce((s, l) => s + Math.max(0, l.stock - l.reserved), 0), 0
+    );
+    Object.assign(product, { totalStock, images: product.images || [] });
 
     console.log('✅ Product updated with inventory:', {
       id: product.id,

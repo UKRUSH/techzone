@@ -179,60 +179,35 @@ export function CartProvider({ children }) {
 
   const addToCart = async (variantId, quantity = 1) => {
     try {
-      console.log('🛒 CartProvider: addToCart called', { variantId, quantity });
-      
-      // Use API for both authenticated and guest users
       const requestBody = { variantId, quantity };
-      
-      // Include sessionId for guest users
       if (status === 'unauthenticated') {
         requestBody.sessionId = getGuestSessionId();
       }
 
-      console.log('🛒 CartProvider: Request body', requestBody);
-
       const response = await fetch('/api/cart', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
       });
 
-      console.log('🛒 CartProvider: Response status', response.status, response.statusText);
-
       if (response.ok) {
         const result = await response.json();
-        console.log('🛒 CartProvider: Response result', result);
-        
-        // Handle the API response structure { success: true, data: cartItem }
         const cartItem = result.success ? result.data : result;
         dispatch({ type: 'ADD_ITEM', payload: cartItem });
         
-        // Broadcast cart update to all listeners
         broadcastCartUpdate();
-        
-        // Force refresh cart state to ensure consistency
-        console.log('🔄 Triggering cart refresh after add...');
-        setTimeout(() => {
-          fetchCart();
-        }, 200); // Small delay to ensure backend is updated
-        
         return { success: true, item: cartItem };
       } else {
         let errorMessage = 'Unknown error';
         try {
           const error = await response.json();
-          console.log('🛒 CartProvider: Error response', error);
           errorMessage = error.error || error.message || 'Failed to add to cart';
-        } catch (parseError) {
-          console.log('🛒 CartProvider: Could not parse error response', parseError);
+        } catch {
           errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         }
         return { success: false, error: errorMessage };
       }
     } catch (error) {
-      console.error('🛒 CartProvider: Network error adding to cart:', error);
       return { success: false, error: 'Network error: Failed to add item to cart' };
     }
   };

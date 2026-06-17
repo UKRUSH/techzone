@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-  Search, 
-  Filter, 
-  Grid3X3, 
-  List, 
+import {
+  Search,
+  Filter,
+  Grid3X3,
+  List,
   Zap,
   Package,
   Star,
@@ -23,12 +23,18 @@ import {
   Heart,
   Share2
 } from "lucide-react";
+import { ProductImageUpload } from "@/components/admin/ProductImageUpload";
 
 // Enhanced Product Card component with 60% Black / 40% Yellow Premium Theme
 const DatabaseProductCard = memo(function DatabaseProductCard({ product, onAddToCart, onQuickView, onAddToCompare, isInCompare }) {
+  const [localImage, setLocalImage] = useState(null);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  const displayImage = localImage || product.imageUrl;
+
   const categoryColors = {
     gpu: 'from-yellow-400 via-amber-500 to-orange-500',
-    cpu: 'from-yellow-500 via-yellow-600 to-amber-600', 
+    cpu: 'from-yellow-500 via-yellow-600 to-amber-600',
     storage: 'from-amber-400 via-yellow-500 to-yellow-600',
     memory: 'from-yellow-300 via-yellow-400 to-amber-500',
     motherboard: 'from-yellow-600 via-amber-600 to-orange-600',
@@ -51,32 +57,53 @@ const DatabaseProductCard = memo(function DatabaseProductCard({ product, onAddTo
         <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 via-transparent to-yellow-400/20 animate-pulse rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         
         <CardHeader className="relative pb-4 p-6">
-          {/* Enhanced Product Image/Icon Section */}
-          <div className={`aspect-square rounded-2xl mb-4 flex items-center justify-center relative bg-gradient-to-br ${categoryColors[product.category] || 'from-yellow-400 to-amber-500'} shadow-2xl group-hover:shadow-yellow-400/30 transition-all duration-300`}>
-            <Package className="w-16 h-16 text-black/80 group-hover:scale-110 transition-transform duration-300" />
-            
-            {/* Premium Category Badge */}
+          {/* Product Image Section */}
+          <div className={`aspect-square rounded-2xl mb-4 flex items-center justify-center relative overflow-hidden bg-gradient-to-br ${categoryColors[product.category?.toLowerCase()] || 'from-yellow-400 to-amber-500'} shadow-2xl group-hover:shadow-yellow-400/30 transition-all duration-300`}>
+            {displayImage && !imgFailed ? (
+              <img
+                src={displayImage}
+                alt={product.name}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                onError={() => setImgFailed(true)}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Package className="w-16 h-16 text-black/80 group-hover:scale-110 transition-transform duration-300" />
+              </div>
+            )}
+
+            {/* Admin image upload button */}
+            <div className="absolute bottom-3 left-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <ProductImageUpload
+                productId={product.id}
+                onUploaded={(url) => { setLocalImage(url); setImgFailed(false); }}
+              />
+            </div>
+
+            {/* Category Badge */}
             <div className="absolute top-3 left-3">
               <Badge className="bg-black/80 backdrop-blur-sm text-yellow-300 border border-yellow-400/40 text-xs font-bold px-3 py-1 rounded-full">
-                {product.category.toUpperCase()}
+                {product.category?.toUpperCase()}
               </Badge>
             </div>
-            
+
             {/* Stock Status Badge */}
             <div className="absolute top-3 right-3">
-              <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white border border-green-400/50 text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                ✓ IN STOCK
-              </Badge>
+              {product.inStock ? (
+                <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                  ✓ IN STOCK
+                </Badge>
+              ) : (
+                <Badge className="bg-zinc-700 text-zinc-300 border-0 text-xs font-bold px-3 py-1 rounded-full">
+                  OUT OF STOCK
+                </Badge>
+              )}
             </div>
-            
-            {/* Premium Price Tag */}
+
+            {/* Price Tag */}
             <div className="absolute bottom-3 right-3 bg-gradient-to-r from-black/90 to-gray-900/90 backdrop-blur-sm rounded-xl px-3 py-2 border border-yellow-400/30">
-              <span className="text-yellow-400 font-black text-lg">Rs. {product.price}</span>
+              <span className="text-yellow-400 font-black text-lg">Rs. {product.price?.toLocaleString()}</span>
             </div>
-            
-            {/* Floating Golden Orbs */}
-            <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-yellow-300/60 rounded-full blur-sm animate-pulse"></div>
-            <div className="absolute bottom-1/3 right-1/4 w-2 h-2 bg-amber-400/60 rounded-full blur-sm animate-pulse delay-500"></div>
           </div>
           
           {/* Enhanced Product Title */}
@@ -214,37 +241,40 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('/api/products');
-      if (response.ok) {
-        const result = await response.json();
+      // cache: 'no-store' bypasses service-worker cache so we always get live DB data
+      const response = await fetch('/api/products', { cache: 'no-store' });
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         const productsData = result.data || [];
-        // Convert database format to component format, keeping variants for cart functionality
-        const formattedProducts = productsData.map(product => ({
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          price: product.variants?.[0]?.price || 0,
-          category: product.category?.name || 'Other',
-          brand: product.brand?.name || 'Unknown',
-          inStock: true,
-          rating: 5,
-          stock: product.variants?.[0]?.attributes?.stock || 0,
-          imageUrl: product.variants?.[0]?.attributes?.imageUrl || '',
-          variants: product.variants || [] // Keep the full variants array for cart functionality
-        }));
+        const formattedProducts = productsData.map(product => {
+          const variant = product.variants?.[0];
+          const totalStock = product.totalStock ?? variant?.inventoryLevels?.reduce(
+            (s, l) => s + Math.max(0, l.stock - l.reserved), 0
+          ) ?? 0;
+          return {
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            price: variant?.price || 0,
+            compareAtPrice: variant?.compareAtPrice || null,
+            category: product.category?.slug || product.category?.name?.toLowerCase() || 'other',
+            brand: product.brand?.name || 'Unknown',
+            inStock: totalStock > 0,
+            totalStock,
+            rating: 5,
+            images: product.images || [],
+            imageUrl: product.images?.[0] || '',
+            variants: product.variants || [],
+          };
+        });
         setProducts(formattedProducts);
       } else {
-        // Handle database unavailable error gracefully
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 503) {
-          console.log('Database unavailable - no products to display');
-        } else {
-          console.log('Products API returned error:', response.status);
-        }
+        console.error('Products API error:', response.status, result?.error);
         setProducts([]);
       }
     } catch (error) {
-      console.log('Network error when fetching products:', error.message);
+      console.error('Network error fetching products:', error.message);
       setProducts([]);
     } finally {
       setLoading(false);
@@ -253,7 +283,7 @@ export default function ProductsPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories');
+      const response = await fetch('/api/categories', { cache: 'no-store' });
       if (response.ok) {
         const result = await response.json();
         setCategories(result.data || []);
@@ -265,7 +295,7 @@ export default function ProductsPage() {
 
   const fetchBrands = async () => {
     try {
-      const response = await fetch('/api/brands');
+      const response = await fetch('/api/brands', { cache: 'no-store' });
       if (response.ok) {
         const result = await response.json();
         setBrands(result.data || []);
@@ -810,18 +840,18 @@ export default function ProductsPage() {
                       <div className="w-24 h-24 mx-auto bg-gradient-to-r from-red-500/20 to-orange-500/20 rounded-full flex items-center justify-center mb-8 border-2 border-red-400/40">
                         <Package className="h-12 w-12 text-red-400" />
                       </div>
-                      <h3 className="text-4xl font-black text-white mb-4">Database Connection Required</h3>
+                      <h3 className="text-4xl font-black text-white mb-4">No Products Found</h3>
                       <p className="text-red-200 text-xl mb-8">
-                        Products are only available when connected to the database.<br/>
-                        Please check your MongoDB Atlas connection.
+                        Could not load products from the database.<br/>
+                        Please check your Neon PostgreSQL connection.
                       </p>
                       <div className="text-left bg-black/50 rounded-xl p-6 mb-6 border border-red-500/30">
-                        <h4 className="text-yellow-400 font-bold mb-3">Connection Steps:</h4>
+                        <h4 className="text-yellow-400 font-bold mb-3">Troubleshooting:</h4>
                         <ul className="text-gray-300 space-y-2 text-sm">
-                          <li>• Visit https://cloud.mongodb.com/</li>
-                          <li>• Check if your cluster is running</li>
-                          <li>• Add your IP to Network Access</li>
-                          <li>• Verify database user permissions</li>
+                          <li>• Visit <span className="text-yellow-400">console.neon.tech</span> and check your project is active</li>
+                          <li>• Verify DATABASE_URL in your .env.local is correct</li>
+                          <li>• Run <span className="text-yellow-400">npx prisma db push</span> to sync the schema</li>
+                          <li>• Seed the database with initial product data</li>
                         </ul>
                       </div>
                       <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>

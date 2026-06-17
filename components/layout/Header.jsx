@@ -59,16 +59,19 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   
   useEffect(() => {
+    let rafId = null;
     const handleScroll = () => {
-      if (typeof window !== 'undefined') {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
         setScrolled(window.scrollY > 10);
-      }
+        rafId = null;
+      });
     };
-    
-    if (typeof window !== 'undefined') {
-      window.addEventListener('scroll', handleScroll);
-      return () => window.removeEventListener('scroll', handleScroll);
-    }
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return (

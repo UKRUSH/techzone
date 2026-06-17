@@ -5,18 +5,18 @@ import { createContext, useContext, useState, useEffect } from "react";
 // Instant data cache - no loading time
 const INSTANT_DATA = {
   products: [
-    { id: 1, name: "RTX 4090 Gaming GPU", price: 1599, category: "gpu", brand: "NVIDIA", inStock: true, rating: 5, image: "/gpu.jpg" },
-    { id: 2, name: "Intel i9-13900K", price: 589, category: "cpu", brand: "Intel", inStock: true, rating: 5, image: "/cpu.jpg" },
-    { id: 3, name: "Samsung 980 PRO 2TB", price: 299, category: "storage", brand: "Samsung", inStock: true, rating: 4, image: "/ssd.jpg" },
-    { id: 4, name: "Corsair DDR5-5600 32GB", price: 399, category: "memory", brand: "Corsair", inStock: true, rating: 5, image: "/ram.jpg" },
-    { id: 5, name: "ASUS ROG Strix X670-E", price: 499, category: "motherboard", brand: "ASUS", inStock: true, rating: 4, image: "/mobo.jpg" },
-    { id: 6, name: "Corsair RM850x PSU", price: 159, category: "power-supply", brand: "Corsair", inStock: true, rating: 5, image: "/psu.jpg" },
-    { id: 7, name: "NZXT Kraken X73", price: 199, category: "cooling", brand: "NZXT", inStock: true, rating: 4, image: "/cooler.jpg" },
-    { id: 8, name: "Fractal Design Define 7", price: 169, category: "case", brand: "Fractal", inStock: true, rating: 5, image: "/case.jpg" },
-    { id: 9, name: "AMD Ryzen 9 7950X", price: 699, category: "cpu", brand: "AMD", inStock: true, rating: 5, image: "/amd-cpu.jpg" },
-    { id: 10, name: "RTX 4080 Super", price: 999, category: "gpu", brand: "NVIDIA", inStock: true, rating: 4, image: "/rtx4080.jpg" },
-    { id: 11, name: "WD Black SN850X 1TB", price: 149, category: "storage", brand: "Western Digital", inStock: true, rating: 4, image: "/wd-ssd.jpg" },
-    { id: 12, name: "G.Skill Trident Z5 RGB", price: 299, category: "memory", brand: "G.Skill", inStock: true, rating: 5, image: "/gskill-ram.jpg" }
+    { id: 1,  name: "RTX 4090 Gaming GPU",       price: 289900, compareAtPrice: 319900, category: "gpu",          brand: "NVIDIA",         inStock: true,  stock: 8,  rating: 5, image: "https://placehold.co/400x400/0f172a/22d3ee?text=RTX+4090" },
+    { id: 2,  name: "Intel Core i9-13900K",       price: 109900, compareAtPrice: 129900, category: "cpu",          brand: "Intel",          inStock: true,  stock: 12, rating: 5, image: "https://placehold.co/400x400/1e3a5f/60a5fa?text=i9-13900K" },
+    { id: 3,  name: "Samsung 980 PRO 2TB NVMe",   price: 42900,  compareAtPrice: 54900,  category: "storage",      brand: "Samsung",        inStock: true,  stock: 25, rating: 4, image: "https://placehold.co/400x400/14532d/4ade80?text=980+PRO" },
+    { id: 4,  name: "Corsair Vengeance DDR5 32GB", price: 59900,  compareAtPrice: null,   category: "memory",       brand: "Corsair",        inStock: true,  stock: 30, rating: 5, image: "https://placehold.co/400x400/3b0764/c084fc?text=DDR5+32GB" },
+    { id: 5,  name: "ASUS ROG Strix X670-E",      price: 89900,  compareAtPrice: 99900,  category: "motherboard",  brand: "ASUS",           inStock: true,  stock: 7,  rating: 4, image: "https://placehold.co/400x400/431407/fb923c?text=ROG+X670-E" },
+    { id: 6,  name: "Corsair RM850x 80+ Gold",    price: 24900,  compareAtPrice: 29900,  category: "power-supply", brand: "Corsair",        inStock: true,  stock: 15, rating: 5, image: "https://placehold.co/400x400/1c1917/f59e0b?text=RM850x" },
+    { id: 7,  name: "NZXT Kraken 360 AIO",        price: 34900,  compareAtPrice: 39900,  category: "cooling",      brand: "NZXT",           inStock: true,  stock: 10, rating: 4, image: "https://placehold.co/400x400/0c4a6e/38bdf8?text=Kraken+360" },
+    { id: 8,  name: "Lian Li O11 Dynamic EVO",    price: 22900,  compareAtPrice: null,   category: "case",         brand: "Lian Li",        inStock: true,  stock: 6,  rating: 5, image: "https://placehold.co/400x400/1e293b/94a3b8?text=O11+EVO" },
+    { id: 9,  name: "AMD Ryzen 9 7950X",          price: 129900, compareAtPrice: 149900, category: "cpu",          brand: "AMD",            inStock: true,  stock: 9,  rating: 5, image: "https://placehold.co/400x400/450a0a/f87171?text=Ryzen+7950X" },
+    { id: 10, name: "MSI GeForce RTX 4080 Super", price: 179900, compareAtPrice: 199900, category: "gpu",          brand: "MSI",            inStock: true,  stock: 5,  rating: 4, image: "https://placehold.co/400x400/0f172a/a78bfa?text=RTX+4080S" },
+    { id: 11, name: "WD Black SN850X 1TB",        price: 19900,  compareAtPrice: 24900,  category: "storage",      brand: "Western Digital",inStock: true,  stock: 40, rating: 4, image: "https://placehold.co/400x400/052e16/86efac?text=SN850X" },
+    { id: 12, name: "G.Skill Trident Z5 RGB 64GB",price: 79900,  compareAtPrice: null,   category: "memory",       brand: "G.Skill",        inStock: false, stock: 0,  rating: 5, image: "https://placehold.co/400x400/2e1065/e879f9?text=Z5+RGB" },
   ],
   categories: [
     { name: "Graphics Cards", slug: "gpu", count: 45, icon: "Monitor" },

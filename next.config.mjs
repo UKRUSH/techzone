@@ -1,12 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Minimal configuration for testing
-  experimental: {
-    optimizeCss: false,
-  },
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      { protocol: 'http', hostname: 'localhost' },
+      { protocol: 'https', hostname: 'placehold.co' },
+      { protocol: 'https', hostname: 'via.placeholder.com' },
+      { protocol: 'https', hostname: '**' },
+    ],
     formats: ['image/webp', 'image/avif'],
+    dangerouslyAllowSVG: true,
   },
   compress: true,
 };

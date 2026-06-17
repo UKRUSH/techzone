@@ -1,42 +1,18 @@
 "use client";
 
 // Updated delete and edit functionality - v2.0
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Plus, 
-  Edit3, 
-  Trash2, 
-  Package, 
-  Search, 
-  RefreshCw,
-  Eye,
-  DollarSign,
-  Tag,
-  Boxes,
-  Loader2,
-  CheckCircle,
-  X,
-  Save,
-  ImageIcon,
-  Filter,
-  MoreHorizontal,
-  Star,
-  Sparkles,
-  Zap,
-  TrendingUp,
-  Crown,
-  Shield,
-  Bolt,
-  AlertCircle
+import {
+  Plus, Edit3, Trash2, Package, Search, RefreshCw,
+  DollarSign, Tag, Boxes, Loader2, CheckCircle, X,
+  Save, ImageIcon, Filter, Star, Sparkles,
+  Crown, Shield, Bolt, AlertCircle, Camera
 } from "lucide-react";
-import { useRouter } from 'next/navigation';
 
 // Utility function to safely parse JSON responses
 const safeJsonParse = async (response) => {
@@ -62,6 +38,90 @@ const safeJsonParse = async (response) => {
   }
 };
 
+// ── helpers ─────────────────────────────────────────────────────────────────
+function getStock(product) {
+  if (product.totalStock != null) return product.totalStock;
+  return (product.variants || []).reduce((sum, v) =>
+    sum + (v.inventoryLevels || []).reduce((a, l) => a + Math.max(0, l.stock - l.reserved), 0), 0
+  );
+}
+
+// ── Admin product card image section ────────────────────────────────────────
+function AdminProductImage({ productId, imageSrc, productName, stock, onUploaded }) {
+  const [localSrc, setLocalSrc] = useState(imageSrc);
+  const [imgFailed, setImgFailed] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [done, setDone] = useState(false);
+  const ref = useRef(null);
+
+  const upload = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    setDone(false);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('productId', productId);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setLocalSrc(data.url);
+        setImgFailed(false);
+        setDone(true);
+        onUploaded?.();
+        setTimeout(() => setDone(false), 2000);
+      }
+    } finally {
+      setUploading(false);
+      if (ref.current) ref.current.value = '';
+    }
+  };
+
+  const display = localSrc || imageSrc;
+
+  return (
+    <div className="aspect-video bg-gradient-to-br from-gray-800 to-black rounded-2xl mb-6 flex items-center justify-center overflow-hidden relative group-hover:shadow-lg transition-all duration-300">
+      {display && !imgFailed ? (
+        <img
+          src={display}
+          alt={productName}
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="p-4 bg-yellow-500/20 rounded-2xl backdrop-blur-sm border border-yellow-400/30">
+            <ImageIcon className="w-12 h-12 text-yellow-400" />
+          </div>
+          <p className="text-sm text-yellow-300 mt-3 font-medium">No image</p>
+        </div>
+      )}
+
+      {/* Stock badge */}
+      <div className="absolute top-4 right-4">
+        <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+          stock > 0
+            ? 'bg-yellow-500/30 text-yellow-300 border border-yellow-400/50'
+            : 'bg-red-500/30 text-red-300 border border-red-400/50'
+        }`}>
+          {stock > 0 ? 'In Stock' : 'Out of Stock'}
+        </div>
+      </div>
+
+      {/* Upload button — visible on hover */}
+      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
+      <button
+        onClick={() => ref.current?.click()}
+        disabled={uploading}
+        className="absolute bottom-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-yellow-400 hover:bg-yellow-300 text-black"
+      >
+        {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : done ? <CheckCircle className="w-3.5 h-3.5" /> : <Camera className="w-3.5 h-3.5" />}
+        {uploading ? 'Uploading…' : done ? 'Saved!' : 'Upload Image'}
+      </button>
+    </div>
+  );
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -82,6 +142,31 @@ export default function AdminProductsPage() {
     stock: '',
     imageUrl: ''
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Upload an image file; if editing pass productId to persist immediately
+  const handleImageFileUpload = async (file, productId) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      if (productId) fd.append('productId', productId);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFormData(prev => ({ ...prev, imageUrl: data.url }));
+      } else {
+        alert(data.error || 'Upload failed');
+      }
+    } catch {
+      alert('Upload error');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -296,7 +381,7 @@ export default function AdminProductsPage() {
       category: typeof product.category === 'object' ? product.category?.name : product.category || '',
       brand: typeof product.brand === 'object' ? product.brand?.name : product.brand || '',
       stock: stockValue,
-      imageUrl: product.variants?.[0]?.attributes?.imageUrl || ''
+      imageUrl: product.images?.[0] || ''
     });
     setShowEditForm(true);
     setShowAddForm(false);
@@ -1004,26 +1089,45 @@ export default function AdminProductsPage() {
                         </div>
                       </motion.div>
 
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 1.0 }}
-                        className="space-y-4 group"
+                        className="space-y-4"
                       >
-                        <Label htmlFor="imageUrl" className="text-yellow-300 font-bold text-xl flex items-center gap-2">
+                        <Label className="text-yellow-300 font-bold text-xl flex items-center gap-2">
                           <ImageIcon className="w-5 h-5 text-yellow-400" />
                           Product Image
                         </Label>
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-gradient-to-r from-teal-400/20 to-cyan-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="hidden"
+                          onChange={(e) => handleImageFileUpload(e.target.files?.[0], null)}
+                        />
+                        <div className="flex gap-3 items-center">
+                          <Button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploadingImage}
+                            className="h-14 px-5 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl border-0 flex items-center gap-2 shrink-0"
+                          >
+                            {uploadingImage ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+                            {uploadingImage ? 'Uploading…' : 'Choose Image'}
+                          </Button>
                           <Input
-                            id="imageUrl"
                             value={formData.imageUrl}
                             onChange={(e) => handleInputChange('imageUrl', e.target.value)}
-                            className="relative h-16 bg-gradient-to-r from-black/80 to-gray-900/80 border-2 border-yellow-500/40 hover:border-yellow-400/70 focus:border-yellow-400 focus:shadow-lg focus:shadow-yellow-400/25 text-white text-xl rounded-2xl transition-all duration-300 backdrop-blur-sm"
-                            placeholder="https://example.com/premium-image.jpg"
+                            className="h-14 bg-black/70 border-2 border-yellow-500/40 hover:border-yellow-400/70 focus:border-yellow-400 text-white rounded-xl flex-1"
+                            placeholder="Or paste URL here"
                           />
                         </div>
+                        {formData.imageUrl && (
+                          <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-yellow-400/30">
+                            <img src={formData.imageUrl} alt="preview" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display='none'; }} />
+                          </div>
+                        )}
                       </motion.div>
 
                       <motion.div 
@@ -1210,14 +1314,41 @@ export default function AdminProductsPage() {
                       />
                     </div>
 
-                    <div className="space-y-3 group">
-                      <Label htmlFor="edit-imageUrl" className="text-yellow-300 font-semibold text-lg">Image URL</Label>
-                      <Input
-                        id="edit-imageUrl"
-                        value={formData.imageUrl}
-                        onChange={(e) => handleInputChange('imageUrl', e.target.value)}
-                        className="h-14 bg-black/70 border-yellow-500/40 hover:border-yellow-400/60 focus:border-yellow-400 text-white text-lg rounded-xl transition-all duration-300"
-                        placeholder="https://example.com/image.jpg"
+                    <div className="space-y-3">
+                      <Label className="text-yellow-300 font-semibold text-lg flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-yellow-400" /> Product Image
+                      </Label>
+                      <div className="flex gap-3 items-center">
+                        <Button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingImage}
+                          className="h-14 px-4 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl border-0 flex items-center gap-2 shrink-0"
+                        >
+                          {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                          {uploadingImage ? 'Uploading…' : 'Choose File'}
+                        </Button>
+                        <Input
+                          value={formData.imageUrl}
+                          onChange={(e) => handleInputChange('imageUrl', e.target.value)}
+                          className="h-14 bg-black/70 border-yellow-500/40 hover:border-yellow-400/60 focus:border-yellow-400 text-white text-lg rounded-xl flex-1"
+                          placeholder="Or paste image URL"
+                        />
+                      </div>
+                      {formData.imageUrl && (
+                        <div className="flex items-center gap-3 mt-1">
+                          <div className="w-20 h-20 rounded-xl overflow-hidden border border-yellow-400/30 shrink-0">
+                            <img src={formData.imageUrl} alt="preview" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display='none'; }} />
+                          </div>
+                          <span className="text-yellow-300/70 text-sm break-all">{formData.imageUrl}</span>
+                        </div>
+                      )}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => handleImageFileUpload(e.target.files?.[0], editingProduct?.id)}
                       />
                     </div>
 
@@ -1324,44 +1455,37 @@ export default function AdminProductsPage() {
                         <span className="text-green-300 text-sm font-semibold">In Stock</span>
                       </div>
                       <p className="text-green-200 font-bold text-lg">
-                        {products.filter(p => (p.variants?.[0]?.attributes?.stock || 0) > 0).length}
+                        {products.filter(p => getStock(p) > 0).length}
                       </p>
                     </div>
-                    
+
                     <div className="bg-orange-500/10 border border-orange-400/30 rounded-xl p-3">
                       <div className="flex items-center gap-2 mb-1">
                         <AlertCircle className="w-4 h-4 text-orange-400" />
                         <span className="text-orange-300 text-sm font-semibold">Low Stock</span>
                       </div>
                       <p className="text-orange-200 font-bold text-lg">
-                        {products.filter(p => {
-                          const stock = p.variants?.[0]?.attributes?.stock || 0;
-                          return stock > 0 && stock <= 10;
-                        }).length}
+                        {products.filter(p => { const s = getStock(p); return s > 0 && s <= 10; }).length}
                       </p>
                     </div>
-                    
+
                     <div className="bg-red-500/10 border border-red-400/30 rounded-xl p-3">
                       <div className="flex items-center gap-2 mb-1">
                         <X className="w-4 h-4 text-red-400" />
                         <span className="text-red-300 text-sm font-semibold">Out of Stock</span>
                       </div>
                       <p className="text-red-200 font-bold text-lg">
-                        {products.filter(p => (p.variants?.[0]?.attributes?.stock || 0) === 0).length}
+                        {products.filter(p => getStock(p) === 0).length}
                       </p>
                     </div>
-                    
+
                     <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-3">
                       <div className="flex items-center gap-2 mb-1">
                         <DollarSign className="w-4 h-4 text-yellow-400" />
                         <span className="text-yellow-300 text-sm font-semibold">Total Value</span>
                       </div>
                       <p className="text-yellow-200 font-bold text-lg">
-                        Rs. {products.reduce((total, p) => {
-                          const price = p.variants?.[0]?.price || 0;
-                          const stock = p.variants?.[0]?.attributes?.stock || 0;
-                          return total + (price * stock);
-                        }, 0).toLocaleString()}
+                        Rs. {products.reduce((total, p) => total + (p.variants?.[0]?.price || 0) * getStock(p), 0).toLocaleString()}
                       </p>
                     </div>
                   </motion.div>
@@ -1383,7 +1507,7 @@ export default function AdminProductsPage() {
                   <div className="bg-gradient-to-r from-black/40 to-gray-800/40 px-6 py-3 rounded-2xl border border-yellow-400/30 backdrop-blur-sm">
                     <div className="text-center">
                       <p className="text-white font-semibold text-lg">
-                        {Math.round((products.filter(p => (p.variants?.[0]?.attributes?.stock || 0) > 0).length / Math.max(products.length, 1)) * 100)}%
+                        {Math.round((products.filter(p => getStock(p) > 0).length / Math.max(products.length, 1)) * 100)}%
                       </p>
                       <p className="text-yellow-200 text-xs">Stock Rate</p>
                     </div>
@@ -1412,49 +1536,21 @@ export default function AdminProductsPage() {
                         <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/0 via-yellow-400/0 to-yellow-500/0 group-hover:from-yellow-500/8 group-hover:via-yellow-400/8 group-hover:to-yellow-500/8 rounded-3xl transition-all duration-500"></div>
                         
                         <div className="relative z-10">
-                          {/* Enhanced Product Image */}
-                          <div className="aspect-video bg-gradient-to-br from-gray-800 to-black rounded-2xl mb-6 flex items-center justify-center overflow-hidden relative group-hover:shadow-lg transition-all duration-300">
-                            {product.variants?.[0]?.attributes?.imageUrl ? (
-                              <img
-                                src={product.variants[0].attributes.imageUrl}
-                                alt={product.name}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                onLoad={(e) => {
-                                  console.log('Image loaded successfully:', product.variants[0].attributes.imageUrl);
-                                }}
-                                onError={(e) => {
-                                  console.log('Image failed to load:', product.variants[0].attributes.imageUrl);
-                                  e.target.style.display = 'none';
-                                  const fallback = e.target.parentElement.querySelector('.image-fallback');
-                                  if (fallback) fallback.style.display = 'flex';
-                                }}
+                          {/* Product Image */}
+                          {(() => {
+                            const imgSrc = product.images?.[0] || null;
+                            const stock = product.totalStock ?? product.variants?.reduce((s, v) =>
+                              s + v.inventoryLevels?.reduce((a, l) => a + Math.max(0, l.stock - l.reserved), 0), 0) ?? 0;
+                            return (
+                              <AdminProductImage
+                                productId={product.id}
+                                imageSrc={imgSrc}
+                                productName={product.name}
+                                stock={stock}
+                                onUploaded={() => fetchProducts()}
                               />
-                            ) : null}
-                            
-                            <div 
-                              className={`image-fallback absolute inset-0 flex flex-col items-center justify-center ${
-                                product.variants?.[0]?.attributes?.imageUrl ? 'hidden' : 'flex'
-                              }`}
-                            >
-                              <div className="p-4 bg-yellow-500/20 rounded-2xl backdrop-blur-sm border border-yellow-400/30">
-                                <ImageIcon className="w-12 h-12 text-yellow-400" />
-                              </div>
-                              <p className="text-sm text-yellow-300 mt-3 font-medium">
-                                {product.variants?.[0]?.attributes?.imageUrl ? 'Image failed to load' : 'No image available'}
-                              </p>
-                            </div>
-
-                            {/* Status Badge */}
-                            <div className="absolute top-4 right-4">
-                              <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                (product.variants?.[0]?.inventoryLevels?.[0]?.stock || 0) > 0 
-                                  ? 'bg-yellow-500/30 text-yellow-300 border border-yellow-400/50' 
-                                  : 'bg-red-500/30 text-red-300 border border-red-400/50'
-                              }`}>
-                                {(product.variants?.[0]?.inventoryLevels?.[0]?.stock || 0) > 0 ? 'In Stock' : 'Out of Stock'}
-                              </div>
-                            </div>
-                          </div>
+                            );
+                          })()}
 
                           {/* Enhanced Product Info */}
                           <div className="space-y-4">
@@ -1485,7 +1581,8 @@ export default function AdminProductsPage() {
                                   <span className="text-yellow-300 font-semibold text-sm">Stock</span>
                                 </div>
                                 <p className="text-white font-bold text-lg">
-                                  {product.variants?.[0]?.attributes?.stock || 0}
+                                  {product.totalStock ?? product.variants?.reduce((s, v) =>
+                                    s + v.inventoryLevels?.reduce((a, l) => a + Math.max(0, l.stock - l.reserved), 0), 0) ?? 0}
                                 </p>
                               </div>
                             </div>

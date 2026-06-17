@@ -60,7 +60,6 @@ export async function GET(request) {
                     category: true
                   }
                 },
-                images: true,
                 inventoryLevels: true
               }
             }
@@ -79,7 +78,6 @@ export async function GET(request) {
                     category: true
                   }
                 },
-                images: true,
                 inventoryLevels: true
               }
             }
@@ -445,7 +443,7 @@ export async function PUT(request) {
                   category: true
                 }
               },
-              images: true
+              inventoryLevels: true
             }
           }
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { useCart } from "@/components/providers/CartProvider_clean";
 
-export default function CartPage() {
+function CartPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -772,5 +772,13 @@ export default function CartPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function CartPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <CartPageContent />
+    </Suspense>
   );
 }

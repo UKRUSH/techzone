@@ -1,224 +1,109 @@
-// Simple service worker for instant page caching
-const CACHE_NAME = 'techzone-v1';
-const CRITICAL_PAGES = [
-  '/',
-  '/products',
-  '/categories', 
-  '/pc-builder',
-  '/deals',
-  '/cart'
-];
+// Service worker for TechZone - page & API caching only
+const CACHE_NAME = 'techzone-v3';
+const API_CACHE_NAME = 'techzone-api-v3';
 
-const API_CACHE_NAME = 'techzone-api-v1';
-const API_ENDPOINTS = [
-  '/api/products/fast',
-  '/api/categories',
-  '/api/brands'
-];
+const CACHED_PAGES = ['/', '/products', '/categories', '/pc-builder', '/deals', '/cart'];
+const CACHED_APIS  = ['/api/products/fast', '/api/categories', '/api/brands'];
 
-// Install event - cache critical pages immediately
+// Install - pre-cache pages
 self.addEventListener('install', event => {
   event.waitUntil(
-    Promise.all([
-      caches.open(CACHE_NAME).then(cache => {
-        return cache.addAll(CRITICAL_PAGES);
-      }),
-      caches.open(API_CACHE_NAME).then(cache => {
-        return cache.addAll(API_ENDPOINTS.map(endpoint => 
-          new Request(endpoint, { mode: 'no-cors' })
-        ));
-      })
-    ])
+    caches.open(CACHE_NAME).then(cache => cache.addAll(CACHED_PAGES)).catch(() => {})
   );
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate - delete ALL old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames
-          .filter(cacheName => cacheName !== CACHE_NAME && cacheName !== API_CACHE_NAME)
-          .map(cacheName => caches.delete(cacheName))
-      );
-    })
+    caches.keys().then(keys =>
+      Promise.all(
+        keys
+          .filter(k => k !== CACHE_NAME && k !== API_CACHE_NAME)
+          .map(k => caches.delete(k))
+      )
+    )
   );
   self.clients.claim();
 });
 
-// Fetch event - serve from cache first for instant loading
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip external domains except our own API
+  // ── Never intercept Next.js internals ───────────────────────────────────────
+  // _next/static assets already carry content hashes; caching them here causes
+  // stale-chunk 404s every time the dev server restarts or a new build deploys.
+  if (url.pathname.startsWith('/_next/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  // ── External origins: pass through, fallback 1×1 PNG for images ─────────────
   if (url.origin !== self.location.origin) {
-    // Let external resources be handled by the browser directly
     event.respondWith(
-      fetch(request).catch(error => {
-        console.warn('External resource failed:', request.url, error);
-        // Return a fallback for failed images
-        if (request.destination === 'image') {
-          return new Response(
-            new Uint8Array([
-              0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00,
-              0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01,
-              0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
-              0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41,
-              0x54, 0x08, 0xD7, 0x63, 0xF8, 0x0F, 0x00, 0x00, 0x01, 0x00,
-              0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
-            ]).buffer,
-            {
-              headers: { 'Content-Type': 'image/png' }
-            }
-          );
-        }
-        throw error; // Re-throw for other resource types
+      fetch(request).catch(() => {
+        if (request.destination === 'image') return transparentPng();
+        return new Response('', { status: 503 });
       })
     );
     return;
   }
 
-  // Handle API requests with cache-first strategy (only for GET requests)
-  if (url.pathname.startsWith('/api/')) {
-    // Don't cache POST, PUT, DELETE requests or cart/auth APIs
-    if (request.method !== 'GET' || 
-        url.pathname.includes('/cart') || 
-        url.pathname.includes('/auth') ||
-        url.pathname.includes('/orders')) {
-      // Just pass through without caching
-      event.respondWith(fetch(request));
-      return;
-    }
-
-    event.respondWith(
-      caches.match(request).then(cachedResponse => {
-        if (cachedResponse) {
-          // Serve from cache immediately
-          fetch(request).then(networkResponse => {
-            if (networkResponse.ok) {
-              caches.open(API_CACHE_NAME).then(cache => {
-                cache.put(request, networkResponse.clone());
-              });
-            }
-          }).catch(() => {
-            // Network failed, cached response already served
-          });
-          return cachedResponse;
-        }
-        
-        // No cache, fetch from network
-        return fetch(request).then(networkResponse => {
-          if (networkResponse.ok && networkResponse.body) {
-            const responseToCache = networkResponse.clone();
-            caches.open(API_CACHE_NAME).then(cache => {
-              cache.put(request, responseToCache);
-            });
-          }
-          return networkResponse;
-        }).catch(() => {
-          // Return a fallback response for API failures
-          return new Response(JSON.stringify({
-            success: false,
-            products: [],
-            categories: [],
-            brands: [],
-            cached: false,
-            fallback: true
-          }), {
-            headers: { 'Content-Type': 'application/json' }
-          });
-        });
-      })
-    );
+  // ── Auth / cart / orders: always network, never cache ───────────────────────
+  if (
+    url.pathname.includes('/auth') ||
+    url.pathname.includes('/cart') ||
+    url.pathname.includes('/orders')
+  ) {
+    event.respondWith(fetch(request));
     return;
   }
 
-  // Handle page requests with cache-first strategy
+  // ── GET API calls: stale-while-revalidate ────────────────────────────────────
+  if (request.method === 'GET' && url.pathname.startsWith('/api/')) {
+    event.respondWith(staleWhileRevalidate(request, API_CACHE_NAME));
+    return;
+  }
+
+  // ── Page navigation: network-first, cache fallback ──────────────────────────
   if (request.mode === 'navigate') {
     event.respondWith(
-      caches.match(request).then(cachedResponse => {
-        if (cachedResponse) {
-          // Serve from cache immediately, update in background
-          fetch(request).then(networkResponse => {
-            if (networkResponse.ok) {
-              caches.open(CACHE_NAME).then(cache => {
-                cache.put(request, networkResponse.clone());
-              });
-            }
-          }).catch(() => {
-            // Network failed, cached response already served
-          });
-          return cachedResponse;
-        }
-        
-        // No cache, fetch from network
-        return fetch(request).then(networkResponse => {
-          // Check if response is valid and body is available before cloning
-          if (networkResponse.ok && networkResponse.body && !networkResponse.bodyUsed) {
-            // Clone the response before consuming it
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(request, responseClone);
-            }).catch(error => {
-              console.warn('Cache storage failed:', error);
-            });
+      fetch(request)
+        .then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(request, clone)).catch(() => {});
           }
-          return networkResponse;
-        }).catch(error => {
-          console.warn('Network request failed:', error);
-          // Return a basic error response instead of letting it fail
-          return new Response('Service temporarily unavailable', { 
-            status: 503, 
-            statusText: 'Service Unavailable' 
-          });
-        });
-      })
+          return res;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }
 
-  // Handle static assets
-  event.respondWith(
-    caches.match(request).then(cachedResponse => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      
-      // For external resources, handle fetch errors gracefully
-      return fetch(request).catch(error => {
-        console.warn('Failed to fetch resource:', request.url, error);
-        // Return a transparent 1x1 pixel for failed images
-        if (request.destination === 'image') {
-          return new Response(
-            new Uint8Array([
-              0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00,
-              0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01,
-              0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
-              0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41,
-              0x54, 0x08, 0xD7, 0x63, 0xF8, 0x0F, 0x00, 0x00, 0x01, 0x00,
-              0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
-            ]).buffer,
-            {
-              headers: { 'Content-Type': 'image/png' }
-            }
-          );
-        }
-        // For other resources, return a 404 response
-        return new Response('Resource not found', { 
-          status: 404, 
-          statusText: 'Not Found' 
-        });
-      });
-    })
-  );
+  // ── Everything else: network only ───────────────────────────────────────────
+  event.respondWith(fetch(request).catch(() => new Response('', { status: 503 })));
 });
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+async function staleWhileRevalidate(request, cacheName) {
+  const cache  = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  const network = fetch(request).then(res => {
+    if (res.ok) cache.put(request, res.clone()).catch(() => {});
+    return res;
+  }).catch(() => null);
+  return cached || network;
+}
+
+function transparentPng() {
+  const bytes = new Uint8Array([
+    0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,0x49,0x48,0x44,0x52,
+    0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x06,0x00,0x00,0x00,0x1F,0x15,0xC4,
+    0x89,0x00,0x00,0x00,0x0B,0x49,0x44,0x41,0x54,0x08,0xD7,0x63,0x60,0x00,0x00,0x00,
+    0x02,0x00,0x01,0xE2,0x21,0xBC,0x33,0x00,0x00,0x00,0x00,0x49,0x45,0x4E,0x44,0xAE,
+    0x42,0x60,0x82,
+  ]);
+  return new Response(bytes.buffer, { headers: { 'Content-Type': 'image/png' } });
+}
