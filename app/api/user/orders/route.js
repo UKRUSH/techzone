@@ -1,49 +1,16 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma, ensureConnection, withDatabaseConnection } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request) {
   try {
-    console.log("🚀 Starting orders API");
     const startTime = Date.now();
-    
-    // Enhanced connection retry logic
-    let connectionAttempts = 0;
-    const maxConnectionAttempts = 3;
-    let connectionEstablished = false;
-    
-    while (connectionAttempts < maxConnectionAttempts && !connectionEstablished) {
-      connectionAttempts++;
-      console.log(`🔄 Connection attempt ${connectionAttempts}/${maxConnectionAttempts}`);
-      
-      try {
-        connectionEstablished = await ensureConnection();
-        if (connectionEstablished) {
-          console.log("✅ Database connection verified");
-          break;
-        }
-      } catch (connectionError) {
-        console.error(`❌ Connection attempt ${connectionAttempts} failed:`, connectionError.message);
-        if (connectionAttempts < maxConnectionAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * connectionAttempts));
-        }
-      }
-    }
-    
-    if (!connectionEstablished) {
-      return Response.json(
-        { error: "Database connection failed after multiple attempts", retry: true },
-        { status: 503 }
-      );
-    }
-    
+
     // Authentication check
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    console.log("📊 Authenticated user:", session.user.email);
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -51,100 +18,55 @@ export async function GET(request) {
     const page = parseInt(searchParams.get('page')) || 1;
     const offset = (page - 1) * limit;
 
-    console.log("📊 Query params:", { limit, page, offset });
-
-    // User lookup with retry
-    console.log("🔍 Looking up user:", session.user.email);
-    let user;
-    
-    const findUser = async () => {
-      return await prisma.user.findUnique({
-        where: { email: session.user.email },
-        select: { id: true }
-      });
-    };
-    
-    try {
-      user = await findUser();
-    } catch (userError) {
-      console.error("❌ User lookup failed:", userError.message);
-      // One retry for user lookup
-      await ensureConnection();
-      user = await findUser();
-    }
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true }
+    });
 
     if (!user) {
       return Response.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Orders query with timeout protection
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Database timeout')), 10000)
-    );
-
-    const fetchOrders = async () => {
-      console.log("📦 Fetching orders for user:", user.id);
-      
-      const executeQuery = async () => {
-        return await Promise.all([
-          prisma.order.findMany({
-            where: { userId: user.id },
+    const [orders, totalOrders] = await Promise.all([
+      prisma.order.findMany({
+        where: { userId: user.id },
+        select: {
+          id: true,
+          confirmationNumber: true,
+          status: true,
+          total: true,
+          subtotal: true,
+          tax: true,
+          shipping: true,
+          createdAt: true,
+          customerName: true,
+          customerEmail: true,
+          customerPhone: true,
+          shippingAddress: true,
+          shippingAddress2: true,
+          shippingCity: true,
+          shippingDistrict: true,
+          shippingPostalCode: true,
+          shippingCountry: true,
+          paymentMethod: true,
+          orderItems: {
             select: {
               id: true,
-              confirmationNumber: true,
-              status: true,
-              total: true,
-              subtotal: true,
-              tax: true,
-              shipping: true,
-              createdAt: true,
-              customerName: true,
-              customerEmail: true,
-              customerPhone: true,
-              shippingAddress: true,
-              shippingAddress2: true,
-              shippingCity: true,
-              shippingDistrict: true,
-              shippingPostalCode: true,
-              shippingCountry: true,
-              paymentMethod: true,
-              orderItems: {
-                select: {
-                  id: true,
-                  productName: true,
-                  quantity: true,
-                  price: true,
-                  productId: true,
-                  variantId: true
-                }
-              }
-            },
-            orderBy: { createdAt: 'desc' },
-            skip: offset,
-            take: limit
-          }),
-          prisma.order.count({
-            where: { userId: user.id }
-          })
-        ]);
-      };
-      
-      try {
-        const [orders, totalOrders] = await executeQuery();
-        return { orders, totalOrders };
-      } catch (queryError) {
-        console.error("❌ Orders query failed:", queryError.message);
-        // One retry for orders query
-        await ensureConnection();
-        const [orders, totalOrders] = await executeQuery();
-        return { orders, totalOrders };
-      }
-    };
-
-    const { orders, totalOrders } = await Promise.race([fetchOrders(), timeoutPromise]);
+              productName: true,
+              quantity: true,
+              price: true,
+              productId: true,
+              variantId: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit
+      }),
+      prisma.order.count({ where: { userId: user.id } })
+    ]);
     const totalPages = Math.ceil(totalOrders / limit);
-
-    console.log(`✅ Returning orders: count=${orders.length}, total=${totalOrders}, pages=${totalPages}`);
 
     // Format orders for frontend with comprehensive details
     const formattedOrders = orders.map(order => ({
@@ -193,9 +115,6 @@ export async function GET(request) {
       }))
     }));
 
-    const responseTime = Date.now() - startTime;
-    console.log(`⚡ Orders API completed in ${responseTime}ms`);
-
     return Response.json({
       orders: formattedOrders,
       pagination: {
@@ -204,30 +123,11 @@ export async function GET(request) {
         totalOrders,
         hasNext: page < totalPages,
         hasPrev: page > 1
-      },
-      performance: {
-        responseTime: `${responseTime}ms`
       }
     });
 
   } catch (error) {
-    console.error("❌ Orders API Error:", error);
-    
-    // Always attempt to disconnect on error
-    try {
-      await prisma.$disconnect();
-    } catch (disconnectError) {
-      console.error("Prisma disconnect error:", disconnectError);
-    }
-    
-    if (error.message === 'Database timeout') {
-      return Response.json({
-        error: "Orders taking longer than expected. The database is taking longer than usual. Your orders will load shortly.",
-        timeout: true,
-        retryAfter: 5
-      }, { status: 503 });
-    }
-    
+    console.error("Orders API Error:", error);
     return Response.json(
       { error: "Failed to fetch orders", details: error.message },
       { status: 500 }

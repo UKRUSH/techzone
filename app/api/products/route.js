@@ -42,8 +42,6 @@ export async function GET(request) {
     const includeMetadata = searchParams.get('includeMetadata') === 'true';
     const skip = (page - 1) * limit;
 
-    console.log('🔄 Loading products from database...');
-
     // Build optimized where clause
     const where = {};
 
@@ -118,8 +116,6 @@ export async function GET(request) {
         includeMetadata ? getCachedMetadata() : Promise.resolve(null)
       ]);
 
-      console.log(`✅ Loaded ${products.length} products from database`);
-
       // Calculate real-time stock for each product
       const productsWithStock = products.map(product => {
         // Calculate total available stock across all variants
@@ -148,8 +144,6 @@ export async function GET(request) {
         };
       });
 
-      console.log(`📦 Calculated stock for ${productsWithStock.length} products`);
-
       // Calculate estimated total for large datasets
       const estimatedTotal = totalProducts || (productsWithStock.length === limit ? (page * limit) + 1 : page * limit);
 
@@ -171,13 +165,7 @@ export async function GET(request) {
       }
 
       const jsonResponse = NextResponse.json(response);
-      
-      // Add cache control headers to prevent caching issues in admin
-      jsonResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      jsonResponse.headers.set('Pragma', 'no-cache');
-      jsonResponse.headers.set('Expires', '0');
-      jsonResponse.headers.set('Surrogate-Control', 'no-store');
-
+      jsonResponse.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
       return jsonResponse;
 
     } catch (dbError) {

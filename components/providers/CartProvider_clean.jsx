@@ -1,340 +1,199 @@
 "use client";
 
-import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 
 const CartContext = createContext();
 
-// Helper function to get or create guest session ID
 const getGuestSessionId = () => {
-  if (typeof window === 'undefined') return null; // Server-side
-  
-  // Check if there's a stored session ID first (for consistency)
+  if (typeof window === 'undefined') return null;
   let sessionId = localStorage.getItem('guestSessionId');
-  
-  // Always check URL and use it if available (but update stored ID)
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlSessionId = urlParams.get('sessionId');
-  
+  const urlSessionId = new URLSearchParams(window.location.search).get('sessionId');
   if (urlSessionId) {
-    console.log('🔧 URL sessionId detected:', urlSessionId);
-    // If URL sessionId is different from stored, update storage but log the change
-    if (sessionId && sessionId !== urlSessionId) {
-      console.log('⚠️ SessionId mismatch - stored:', sessionId, 'URL:', urlSessionId);
-      console.log('🔄 Updating stored sessionId to match URL');
-    }
     localStorage.setItem('guestSessionId', urlSessionId);
     return urlSessionId;
   }
-  
-  // Fall back to stored sessionId or create new one
   if (!sessionId) {
-    sessionId = 'guest-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    sessionId = 'guest-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11);
     localStorage.setItem('guestSessionId', sessionId);
-    console.log('🔧 Generated new sessionId:', sessionId);
-  } else {
-    console.log('🔧 Using localStorage sessionId:', sessionId);
   }
-  
   return sessionId;
 };
 
-// Cart reducer
 const cartReducer = (state, action) => {
   switch (action.type) {
     case 'SET_CART':
-      return {
-        ...state,
-        items: Array.isArray(action.payload) ? action.payload : [],
-        loading: false
-      };
-    case 'ADD_ITEM':
-      const existingItems = Array.isArray(state.items) ? state.items : [];
-      const existingItemIndex = existingItems.findIndex(
-        item => item.variant.id === action.payload.variant.id
-      );
-      
-      if (existingItemIndex !== -1) {
-        // Update existing item
-        const updatedItems = [...existingItems];
-        updatedItems[existingItemIndex] = action.payload;
-        return {
-          ...state,
-          items: updatedItems
-        };
-      } else {
-        // Add new item
-        return {
-          ...state,
-          items: [...existingItems, action.payload]
-        };
+      return { ...state, items: Array.isArray(action.payload) ? action.payload : [], loading: false };
+    case 'ADD_ITEM': {
+      const existing = Array.isArray(state.items) ? state.items : [];
+      const idx = existing.findIndex(i => i.variant?.id === action.payload.variant?.id);
+      if (idx !== -1) {
+        const updated = [...existing];
+        updated[idx] = action.payload;
+        return { ...state, items: updated };
       }
+      return { ...state, items: [...existing, action.payload] };
+    }
     case 'UPDATE_ITEM':
-      const currentItems = Array.isArray(state.items) ? state.items : [];
       return {
         ...state,
-        items: currentItems.map(item =>
-          item.id === action.payload.id ? action.payload : item
+        items: (Array.isArray(state.items) ? state.items : []).map(i =>
+          i.id === action.payload.id ? action.payload : i
         )
       };
     case 'REMOVE_ITEM':
-      const itemsToFilter = Array.isArray(state.items) ? state.items : [];
       return {
         ...state,
-        items: itemsToFilter.filter(item => item.id !== action.payload)
+        items: (Array.isArray(state.items) ? state.items : []).filter(i => i.id !== action.payload)
       };
     case 'CLEAR_CART':
-      return {
-        ...state,
-        items: []
-      };
+      return { ...state, items: [] };
     case 'SET_LOADING':
-      return {
-        ...state,
-        loading: action.payload
-      };
+      return { ...state, loading: action.payload };
     default:
       return state;
   }
 };
 
 export function CartProvider({ children }) {
-  const { data: session, status } = useSession();
-  const [state, dispatch] = useReducer(cartReducer, {
-    items: [],
-    loading: false
-  });
+  const { status } = useSession();
+  const [state, dispatch] = useReducer(cartReducer, { items: [], loading: false });
+  const fetchedForStatus = useRef(null);
+  const fetchingRef = useRef(false);
 
-  // Fetch cart from API
   const fetchCart = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     dispatch({ type: 'SET_LOADING', payload: true });
-    
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
       const sessionId = getGuestSessionId();
       const url = sessionId ? `/api/cart?sessionId=${encodeURIComponent(sessionId)}` : '/api/cart';
-      
-      const response = await fetch(url);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🛒 CartProvider: Raw API response:', data);
-        
-        // Handle different response formats
-        let cartItems = [];
-        if (data.success && Array.isArray(data.data)) {
-          // New API format: { success: true, data: [...] }
-          cartItems = data.data;
-        } else if (Array.isArray(data)) {
-          // Direct array format
-          cartItems = data;
-        } else if (data.items && Array.isArray(data.items)) {
-          // Object with items property
-          cartItems = data.items;
-        }
-        
-        dispatch({ type: 'SET_CART', payload: cartItems });
-        console.log(`✅ Fetched ${cartItems.length} cart items`);
-        console.log('🛒 Cart items details:', cartItems.map(item => ({
-          id: item.id,
-          productName: item.variant?.product?.name,
-          quantity: item.quantity,
-          price: item.variant?.price
-        })));
+      const res = await fetch(url, { signal: controller.signal });
+      if (res.ok) {
+        const data = await res.json();
+        let items = [];
+        if (data.success && Array.isArray(data.data)) items = data.data;
+        else if (Array.isArray(data)) items = data;
+        else if (data.items && Array.isArray(data.items)) items = data.items;
+        dispatch({ type: 'SET_CART', payload: items });
       } else {
-        console.error('Failed to fetch cart:', response.status);
-        dispatch({ type: 'SET_CART', payload: [] });
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
-    } catch (error) {
-      console.error('Error fetching cart:', error);
-      dispatch({ type: 'SET_CART', payload: [] });
-    } finally {
+    } catch {
       dispatch({ type: 'SET_LOADING', payload: false });
-    }
-  }, [status]); // Only depend on status
-
-  // Create a custom event for cart updates
-  const broadcastCartUpdate = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('cartUpdated'));
+    } finally {
+      clearTimeout(timer);
+      fetchingRef.current = false;
     }
   }, []);
 
-  // Listen for cart updates from other components
+  // Only fetch once per unique resolved status value
   useEffect(() => {
-    const handleCartUpdate = () => {
-      console.log('🔄 Cart update broadcasted, refreshing...');
-      // Call fetchCart directly without dependency
-      if (fetchCart) {
-        fetchCart();
-      }
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('cartUpdated', handleCartUpdate);
-      return () => {
-        window.removeEventListener('cartUpdated', handleCartUpdate);
-      };
+    if (status !== 'loading' && status !== fetchedForStatus.current) {
+      fetchedForStatus.current = status;
+      fetchCart();
     }
-  }, []); // Remove fetchCart dependency to avoid initialization issues
+  }, [status, fetchCart]);
 
   const addToCart = async (variantId, quantity = 1) => {
     try {
-      const requestBody = { variantId, quantity };
-      if (status === 'unauthenticated') {
-        requestBody.sessionId = getGuestSessionId();
-      }
-
-      const response = await fetch('/api/cart', {
+      const body = { variantId, quantity };
+      if (status === 'unauthenticated') body.sessionId = getGuestSessionId();
+      const res = await fetch('/api/cart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(body),
       });
-
-      if (response.ok) {
-        const result = await response.json();
+      if (res.ok) {
+        const result = await res.json();
         const cartItem = result.success ? result.data : result;
         dispatch({ type: 'ADD_ITEM', payload: cartItem });
-        
-        broadcastCartUpdate();
         return { success: true, item: cartItem };
-      } else {
-        let errorMessage = 'Unknown error';
-        try {
-          const error = await response.json();
-          errorMessage = error.error || error.message || 'Failed to add to cart';
-        } catch {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        }
-        return { success: false, error: errorMessage };
       }
-    } catch (error) {
-      return { success: false, error: 'Network error: Failed to add item to cart' };
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.error || err.message || 'Failed to add to cart' };
+    } catch {
+      return { success: false, error: 'Network error' };
     }
   };
 
   const updateCartItem = async (itemId, quantity) => {
-    console.log('🛒 CartProvider: updateCartItem called', { itemId, quantity });
-    
     try {
-      const requestBody = { 
-        itemId: itemId, 
-        quantity: quantity,
-        sessionId: getGuestSessionId()
-      };
-      console.log('🛒 CartProvider: Request body:', requestBody);
-      
-      const response = await fetch('/api/cart', {
+      const res = await fetch('/api/cart', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId, quantity, sessionId: getGuestSessionId() }),
       });
-
-      console.log('🛒 CartProvider: API response status:', response.status);
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ CartProvider: Successful response:', result);
-        
+      if (res.ok) {
+        const result = await res.json();
         if (quantity <= 0) {
-          // Item was removed
           dispatch({ type: 'REMOVE_ITEM', payload: itemId });
-          return { success: true, message: 'Item removed from cart' };
-        } else {
-          // Item was updated
-          const updatedItem = result.success ? result.data : result;
-          dispatch({ type: 'UPDATE_ITEM', payload: updatedItem });
-          return { success: true, item: updatedItem };
+          return { success: true };
         }
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.log('❌ CartProvider: API error response:', errorData);
-        
-        return { success: false, error: errorData.error || 'Failed to update item' };
+        dispatch({ type: 'UPDATE_ITEM', payload: result.success ? result.data : result });
+        return { success: true };
       }
-    } catch (error) {
-      console.error('🛒 CartProvider: Network error:', error);
-      return { success: false, error: 'Network error: Failed to update item' };
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.error || 'Failed to update', code: err.code };
+    } catch {
+      return { success: false, error: 'Network error' };
     }
   };
 
   const removeFromCart = async (itemId) => {
     try {
       const sessionId = getGuestSessionId();
-      const url = `/api/cart?itemId=${encodeURIComponent(itemId)}&sessionId=${encodeURIComponent(sessionId)}`;
-      
-      const response = await fetch(url, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
+      const res = await fetch(
+        `/api/cart?itemId=${encodeURIComponent(itemId)}&sessionId=${encodeURIComponent(sessionId)}`,
+        { method: 'DELETE' }
+      );
+      if (res.ok) {
         dispatch({ type: 'REMOVE_ITEM', payload: itemId });
         return { success: true };
-      } else {
-        const error = await response.json();
-        return { success: false, error: error.error };
       }
-    } catch (error) {
-      console.error('Error removing from cart:', error);
-      return { success: false, error: 'Failed to remove item from cart' };
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.error };
+    } catch {
+      return { success: false, error: 'Failed to remove item' };
     }
   };
 
   const clearCart = async () => {
     try {
       const sessionId = getGuestSessionId();
-      const url = sessionId ? `/api/cart?clearAll=true&sessionId=${encodeURIComponent(sessionId)}` : '/api/cart?clearAll=true';
-      
-      const response = await fetch(url, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
+      const url = sessionId
+        ? `/api/cart?clearAll=true&sessionId=${encodeURIComponent(sessionId)}`
+        : '/api/cart?clearAll=true';
+      const res = await fetch(url, { method: 'DELETE' });
+      if (res.ok) {
         dispatch({ type: 'CLEAR_CART' });
         return { success: true };
-      } else {
-        const error = await response.json();
-        return { success: false, error: error.error };
       }
-    } catch (error) {
-      console.error('Error clearing cart:', error);
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.error };
+    } catch {
       return { success: false, error: 'Failed to clear cart' };
     }
   };
 
-  // Load cart when component mounts or session changes
-  useEffect(() => {
-    if (status !== 'loading') {
-      fetchCart();
-    }
-  }, [status, fetchCart]);
-
-  // Calculate totals
-  const cartTotal = state.items.reduce((total, item) => {
-    const price = item.variant?.price || 0;
-    const quantity = item.quantity || 0;
-    return total + (price * quantity);
-  }, 0);
-
-  const cartItemCount = state.items.reduce((count, item) => {
-    return count + (item.quantity || 0);
-  }, 0);
-
-  const value = {
-    items: state.items,
-    loading: state.loading,
-    cartTotal,
-    cartItemCount,
-    addToCart,
-    updateCartItem,
-    removeFromCart,
-    clearCart,
-    fetchCart
-  };
+  const cartTotal = state.items.reduce((sum, i) => sum + ((i.variant?.price || 0) * (i.quantity || 0)), 0);
+  const cartItemCount = state.items.reduce((sum, i) => sum + (i.quantity || 0), 0);
 
   return (
-    <CartContext.Provider value={value}>
+    <CartContext.Provider value={{
+      items: state.items,
+      loading: state.loading,
+      cartTotal,
+      cartItemCount,
+      addToCart,
+      updateCartItem,
+      removeFromCart,
+      clearCart,
+      fetchCart,
+    }}>
       {children}
     </CartContext.Provider>
   );
@@ -342,8 +201,6 @@ export function CartProvider({ children }) {
 
 export function useCart() {
   const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
+  if (!context) throw new Error('useCart must be used within a CartProvider');
   return context;
 }

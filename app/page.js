@@ -283,17 +283,9 @@ export default function HomePage() {
             {/* ── Right: Visual showcase ── */}
             <div className="relative hidden lg:flex items-center justify-center h-[580px]">
 
-              {/* Central glowing ring */}
-              <motion.div
-                className="absolute w-72 h-72 rounded-full border border-yellow-400/20"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              />
-              <motion.div
-                className="absolute w-56 h-56 rounded-full border border-yellow-400/10"
-                animate={{ rotate: -360 }}
-                transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-              />
+              {/* Central glowing ring — CSS spin avoids JS timer overhead */}
+              <div className="absolute w-72 h-72 rounded-full border border-yellow-400/20 animate-spin [animation-duration:20s]" />
+              <div className="absolute w-56 h-56 rounded-full border border-yellow-400/10 animate-spin [animation-duration:15s] [animation-direction:reverse]" />
 
               {/* Central icon */}
               <motion.div
@@ -321,14 +313,10 @@ export default function HomePage() {
         </div>
 
         {/* Scroll cue */}
-        <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-600"
-          animate={{ y: [0, 8, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        >
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-600 animate-bounce">
           <span className="text-xs tracking-widest uppercase">Scroll</span>
           <div className="w-px h-8 bg-gradient-to-b from-yellow-400/40 to-transparent" />
-        </motion.div>
+        </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════

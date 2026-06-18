@@ -17,11 +17,6 @@ export function Header() {
   const { cartItemCount } = useCart();
   const { data: session, status } = useSession();
 
-  // Debug info (remove in production)
-  useEffect(() => {
-    console.log("Header - Auth Status:", { status, session: session?.user });
-  }, [status, session]);
-
   const navigation = [
     { name: "Products", href: "/products" },
     { name: "PC Builder", href: "/pc-builder" },
