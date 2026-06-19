@@ -133,7 +133,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════════════════════
           HERO SECTION
       ═══════════════════════════════════════════════════════════ */}
-      <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
+      <section className="relative min-h-screen flex items-center pt-24 lg:pt-36 overflow-hidden">
 
         {/* ── Background layers ── */}
         <div className="absolute inset-0 bg-black" />
@@ -248,7 +248,7 @@ export default function HomePage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
-                className="flex flex-wrap gap-8 pt-2"
+                className="flex flex-wrap gap-6 sm:gap-8 pt-2"
               >
                 {[
                   { val: 5000, suffix: "+", label: "Products" },
@@ -436,7 +436,7 @@ export default function HomePage() {
           }}
         />
         <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-10">
+          <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-8 md:gap-10">
             <div className="flex-1 space-y-4">
               <Badge className="bg-yellow-400/10 text-yellow-400 border-yellow-400/30">
                 <Wrench className="w-3.5 h-3.5 mr-1.5" />

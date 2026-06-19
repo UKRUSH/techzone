@@ -672,7 +672,7 @@ export default function PCBuilderPage() {
             </div>
 
             {/* Build Status Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 max-w-4xl mx-auto mb-8">
               <Card className="backdrop-blur-sm bg-gradient-to-b from-black/90 via-black/80 to-black/90 border border-yellow-400/30 shadow-xl shadow-yellow-400/10">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -740,7 +740,7 @@ export default function PCBuilderPage() {
 
           {/* Enhanced Navigation Tabs */}
           <div className="flex justify-center mb-8">
-            <div className="flex backdrop-blur-sm bg-gradient-to-b from-black/90 via-black/80 to-black/90 border border-yellow-400/30 rounded-lg p-1 shadow-xl shadow-yellow-400/10">
+            <div className="flex flex-wrap justify-center backdrop-blur-sm bg-gradient-to-b from-black/90 via-black/80 to-black/90 border border-yellow-400/30 rounded-lg p-1 shadow-xl shadow-yellow-400/10 gap-1">
               {[
                 { id: 'presets', label: 'Presets', icon: Bookmark },
                 { id: 'components', label: 'Components', icon: Settings },
@@ -755,14 +755,14 @@ export default function PCBuilderPage() {
                     key={tab.id}
                     variant={activeTab === tab.id ? "default" : "ghost"}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 transition-all duration-200 px-4 py-2 rounded-md font-medium ${
-                      activeTab === tab.id 
-                        ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-black hover:from-yellow-600 hover:to-yellow-700 shadow-lg border-0' 
+                    className={`flex items-center gap-1.5 transition-all duration-200 px-3 sm:px-4 py-2 rounded-md font-medium text-xs sm:text-sm ${
+                      activeTab === tab.id
+                        ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-black hover:from-yellow-600 hover:to-yellow-700 shadow-lg border-0'
                         : 'text-gray-300 hover:text-white hover:bg-yellow-400/20 bg-black/20 border border-yellow-400/20 hover:border-yellow-400/40'
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
+                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline sm:inline">{tab.label}</span>
                   </Button>
                 );
               })}
@@ -770,7 +770,7 @@ export default function PCBuilderPage() {
           </div>
 
           {/* Advanced Control Panel */}
-          <div className="flex justify-center mb-8 gap-4">
+          <div className="flex flex-wrap justify-center mb-8 gap-3 sm:gap-4">
             <Button
               variant="outline"
               onClick={() => setShowBuildPresets(!showBuildPresets)}

@@ -211,7 +211,7 @@ export default function CategoriesPage() {
               <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-400/0 via-yellow-400/40 to-yellow-400/0 rounded-full blur-sm animate-shimmer-slow"></div>
             </motion.div>
             
-            <h1 className="text-6xl sm:text-7xl font-extrabold mb-8 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-600 drop-shadow-lg">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold mb-8 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-600 drop-shadow-lg">
               Product Categories
             </h1>
             
@@ -311,7 +311,7 @@ export default function CategoriesPage() {
           </MemoizedMotion>
 
           {/* Categories Grid with instant rendering */}
-          <div id="all-categories" className="mb-10 flex justify-between items-center">
+          <div id="all-categories" className="mb-10 flex flex-wrap justify-between items-center gap-3">
             <motion.h2 
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
@@ -354,7 +354,7 @@ export default function CategoriesPage() {
               </Button>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-8">
               {filteredCategories.map((category, index) => {
                 const IconComponent = getCategoryIcon(category.slug);
                 

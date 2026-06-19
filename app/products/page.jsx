@@ -223,6 +223,7 @@ export default function ProductsPage() {
   const [compareProducts, setCompareProducts] = useState([]);
   const [showQuickView, setShowQuickView] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Use global cart from provider
   const { items: cartItems, addToCart: addToCartGlobal, cartItemCount } = useCart();
@@ -464,7 +465,7 @@ export default function ProductsPage() {
 
         {/* Premium Status Indicator - Removed */}
         
-        <div className="container mx-auto px-6 py-12 relative z-10">
+        <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 relative z-10">
           {/* Enhanced Premium Header Section */}
           {mounted ? (
             <motion.div 
@@ -473,73 +474,73 @@ export default function ProductsPage() {
               transition={{ duration: 0.6 }}
               className="mb-16"
             >
-              <div className="bg-gradient-to-r from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl border-2 border-yellow-500/40 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+              <div className="bg-gradient-to-r from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl border-2 border-yellow-500/40 rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden">
                 {/* Golden Animated Border */}
                 <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 via-transparent to-yellow-400/20 animate-pulse rounded-3xl"></div>
-              
-              <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-                <div className="flex items-center gap-6">
-                  <div className="relative group">
+
+              <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 lg:gap-8">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+                  <div className="relative group shrink-0">
                     <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-2xl blur-lg opacity-75 group-hover:opacity-100 animate-pulse"></div>
-                    <div className="relative p-4 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-2xl shadow-2xl transform group-hover:scale-105 transition-all duration-300">
-                      <Package className="w-10 h-10 text-black" />
+                    <div className="relative p-3 sm:p-4 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-2xl shadow-2xl transform group-hover:scale-105 transition-all duration-300">
+                      <Package className="w-7 h-7 sm:w-10 sm:h-10 text-black" />
                     </div>
                   </div>
-                  
-                  <div className="space-y-3">
-                    <h1 className="text-6xl font-black tracking-tight">
+
+                  <div className="space-y-2 sm:space-y-3 min-w-0">
+                    <h1 className="text-2xl sm:text-4xl lg:text-6xl font-black tracking-tight">
                       <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-500 bg-clip-text text-transparent">
                         Premium
                       </span>
-                      <span className="text-white ml-4">Products</span>
+                      <span className="text-white ml-2 sm:ml-4">Products</span>
                     </h1>
-                    
-                    <div className="flex items-center gap-4 text-yellow-200">
-                      <Zap className="w-6 h-6 text-yellow-400 animate-pulse" />
-                      <span className="text-xl font-medium">
+
+                    <div className="flex items-center gap-2 sm:gap-4 text-yellow-200">
+                      <Zap className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-400 animate-pulse shrink-0" />
+                      <span className="text-sm sm:text-xl font-medium">
                         {mounted ? (loading ? 'Loading elite inventory...' : `${filteredProducts.length} of ${products.length} premium products`) : 'Initializing premium catalog...'}
                       </span>
                     </div>
-                    
-                    <div className="flex items-center gap-4">
-                      <Badge className="bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-400 border border-green-400/40 px-4 py-2 rounded-full text-sm font-bold">
+
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                      <Badge className="bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-400 border border-green-400/40 px-2 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold">
                         💎 Premium Database
                       </Badge>
-                      <Badge className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-400 border border-yellow-400/40 px-4 py-2 rounded-full text-sm font-bold">
+                      <Badge className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-400 border border-yellow-400/40 px-2 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold">
                         ⚡ Instant Search
                       </Badge>
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Enhanced View Mode Toggles */}
                 <div className="flex items-center gap-4">
                   <div className="bg-black/60 backdrop-blur-sm border border-yellow-500/40 rounded-2xl p-2 flex gap-2">
-                    <Button 
+                    <Button
                       variant={viewMode === "grid" ? "default" : "ghost"}
-                      size="lg"
+                      size="sm"
                       onClick={() => setViewMode("grid")}
-                      className={`h-12 px-6 rounded-xl font-bold transition-all duration-300 ${
-                        viewMode === "grid" 
-                          ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                      className={`h-10 sm:h-12 px-3 sm:px-6 rounded-xl font-bold transition-all duration-300 ${
+                        viewMode === "grid"
+                          ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30"
                           : "text-yellow-300 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30"
                       }`}
                     >
-                      <Grid3X3 className="w-5 h-5 mr-2" />
-                      Grid View
+                      <Grid3X3 className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Grid View</span>
                     </Button>
-                    <Button 
+                    <Button
                       variant={viewMode === "list" ? "default" : "ghost"}
-                      size="lg"
+                      size="sm"
                       onClick={() => setViewMode("list")}
-                      className={`h-12 px-6 rounded-xl font-bold transition-all duration-300 ${
-                        viewMode === "list" 
-                          ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                      className={`h-10 sm:h-12 px-3 sm:px-6 rounded-xl font-bold transition-all duration-300 ${
+                        viewMode === "list"
+                          ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30"
                           : "text-yellow-300 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30"
                       }`}
                     >
-                      <List className="w-5 h-5 mr-2" />
-                      List View
+                      <List className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">List View</span>
                     </Button>
                   </div>
                 </div>
@@ -548,66 +549,66 @@ export default function ProductsPage() {
           </motion.div>
           ) : (
             <div className="mb-16">
-              <div className="bg-gradient-to-r from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl border-2 border-yellow-500/40 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-                  <div className="flex items-center gap-6">
-                    <div className="p-4 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-2xl shadow-2xl">
-                      <Package className="w-10 h-10 text-black" />
+              <div className="bg-gradient-to-r from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl border-2 border-yellow-500/40 rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 lg:gap-8">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+                    <div className="p-3 sm:p-4 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-2xl shadow-2xl shrink-0">
+                      <Package className="w-7 h-7 sm:w-10 sm:h-10 text-black" />
                     </div>
-                    
-                    <div className="space-y-3">
-                      <h1 className="text-6xl font-black tracking-tight">
+
+                    <div className="space-y-2 sm:space-y-3 min-w-0">
+                      <h1 className="text-2xl sm:text-4xl lg:text-6xl font-black tracking-tight">
                         <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-500 bg-clip-text text-transparent">
                           Premium
                         </span>
-                        <span className="text-white ml-4">Products</span>
+                        <span className="text-white ml-2 sm:ml-4">Products</span>
                       </h1>
-                      
-                      <div className="flex items-center gap-4 text-yellow-200">
-                        <Zap className="w-6 h-6 text-yellow-400" />
-                        <span className="text-xl font-medium">
+
+                      <div className="flex items-center gap-2 sm:gap-4 text-yellow-200">
+                        <Zap className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-400 shrink-0" />
+                        <span className="text-sm sm:text-xl font-medium">
                           {mounted ? (loading ? 'Loading elite inventory...' : `${filteredProducts.length} of ${products.length} premium products`) : 'Initializing premium catalog...'}
                         </span>
                       </div>
-                      
-                      <div className="flex items-center gap-4">
-                        <Badge className="bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-400 border border-green-400/40 px-4 py-2 rounded-full text-sm font-bold">
+
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                        <Badge className="bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-400 border border-green-400/40 px-2 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold">
                           💎 Premium Database
                         </Badge>
-                        <Badge className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-400 border border-yellow-400/40 px-4 py-2 rounded-full text-sm font-bold">
+                        <Badge className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-400 border border-yellow-400/40 px-2 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold">
                           ⚡ Instant Search
                         </Badge>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-4">
                     <div className="bg-black/60 backdrop-blur-sm border border-yellow-500/40 rounded-2xl p-2 flex gap-2">
-                      <Button 
+                      <Button
                         variant={viewMode === "grid" ? "default" : "ghost"}
-                        size="lg"
+                        size="sm"
                         onClick={() => setViewMode("grid")}
-                        className={`h-12 px-6 rounded-xl font-bold transition-all duration-300 ${
-                          viewMode === "grid" 
-                            ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                        className={`h-10 sm:h-12 px-3 sm:px-6 rounded-xl font-bold transition-all duration-300 ${
+                          viewMode === "grid"
+                            ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30"
                             : "text-yellow-300 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30"
                         }`}
                       >
-                        <Grid3X3 className="w-5 h-5 mr-2" />
-                        Grid View
+                        <Grid3X3 className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Grid View</span>
                       </Button>
-                      <Button 
+                      <Button
                         variant={viewMode === "list" ? "default" : "ghost"}
-                        size="lg"
+                        size="sm"
                         onClick={() => setViewMode("list")}
-                        className={`h-12 px-6 rounded-xl font-bold transition-all duration-300 ${
-                          viewMode === "list" 
-                            ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30" 
+                        className={`h-10 sm:h-12 px-3 sm:px-6 rounded-xl font-bold transition-all duration-300 ${
+                          viewMode === "list"
+                            ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-400/30"
                             : "text-yellow-300 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30"
                         }`}
                       >
-                        <List className="w-5 h-5 mr-2" />
-                        List View
+                        <List className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">List View</span>
                       </Button>
                     </div>
                   </div>
@@ -616,14 +617,30 @@ export default function ProductsPage() {
             </div>
           )}
 
-          <div className="grid lg:grid-cols-4 gap-10">
+          {/* Mobile filter toggle */}
+          <div className="lg:hidden mb-4">
+            <Button
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="w-full h-12 bg-black/60 border-2 border-yellow-500/40 hover:border-yellow-400/70 text-yellow-300 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-300"
+            >
+              <Filter className="w-5 h-5" />
+              {showMobileFilters ? 'Hide Filters' : 'Show Filters'}
+              {(selectedCategory || selectedBrand || searchQuery) && (
+                <Badge className="bg-yellow-400/20 text-yellow-400 border border-yellow-400/40 ml-1 text-xs px-2 py-0.5">
+                  Active
+                </Badge>
+              )}
+            </Button>
+          </div>
+
+          <div className="grid lg:grid-cols-4 gap-4 lg:gap-10">
             {/* Enhanced Premium Sidebar */}
             {mounted ? (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: -30 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="lg:col-span-1 space-y-8"
+                className={`lg:col-span-1 space-y-8 ${showMobileFilters ? 'block' : 'hidden'} lg:block`}
               >
               {/* Premium Search Section */}
               <div className="relative group">
@@ -780,7 +797,7 @@ export default function ProductsPage() {
               </div>
             </motion.div>
             ) : (
-              <div className="lg:col-span-1 space-y-8">
+              <div className={`lg:col-span-1 space-y-8 ${showMobileFilters ? 'block' : 'hidden'} lg:block`}>
                 {/* Static fallback for sidebar when not mounted */}
                 <div className="bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 border-2 border-yellow-500/50 rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden">
                   <div className="p-6">
@@ -900,20 +917,20 @@ export default function ProductsPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className="mb-10"
                   >
-                    <div className="bg-gradient-to-r from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl border-2 border-yellow-500/40 rounded-2xl p-6 shadow-xl">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-xl">
-                            <Package className="w-6 h-6 text-yellow-400" />
+                    <div className="bg-gradient-to-r from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl border-2 border-yellow-500/40 rounded-2xl p-4 sm:p-6 shadow-xl">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <div className="p-2 sm:p-3 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 rounded-xl shrink-0">
+                            <Package className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400" />
                           </div>
                           <div>
-                            <p className="text-yellow-100 text-2xl font-bold">
+                            <p className="text-yellow-100 text-base sm:text-2xl font-bold">
                               Showing <span className="text-yellow-400 font-black">{filteredProducts.length}</span> premium products
                             </p>
-                            <p className="text-yellow-300/70">Elite inventory curated for professionals</p>
+                            <p className="text-yellow-300/70 text-xs sm:text-sm">Elite inventory curated for professionals</p>
                           </div>
                         </div>
-                        <Badge className="bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-400 border border-green-400/50 px-6 py-3 rounded-full text-lg font-bold">
+                        <Badge className="bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-400 border border-green-400/50 px-3 py-1.5 sm:px-6 sm:py-3 rounded-full text-xs sm:text-lg font-bold">
                           ⚡ Instant Results
                         </Badge>
                       </div>

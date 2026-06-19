@@ -382,7 +382,7 @@ export default function CheckoutPage() {
               CHECKOUT
             </Badge>
             
-            <h1 className="text-5xl md:text-6xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-yellow-400 to-white mb-6">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-yellow-400 to-white mb-6">
               Complete Your Order
             </h1>
             
@@ -414,7 +414,7 @@ export default function CheckoutPage() {
                 <CardContent className="space-y-6">
                   <form onSubmit={handleProceedToPayment}>
                     {/* Personal Information */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                           First Name *
@@ -549,7 +549,7 @@ export default function CheckoutPage() {
                       />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                           City *
@@ -619,7 +619,7 @@ export default function CheckoutPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                           Postal Code *

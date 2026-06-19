@@ -659,15 +659,20 @@
 
 /* Header spacing utilities */
 .page-with-header {
-  padding-top: 120px; /* Header height (80px) + accent line (4px) + extra spacing (36px) for better clearance */
-  scroll-margin-top: 120px; /* Ensures proper scroll positioning when navigating to anchors */
+  padding-top: 144px; /* Desktop: main bar (80px) + accent line (4px) + bottom nav (~56px) + extra */
+  scroll-margin-top: 144px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .page-with-header {
-    padding-top: 110px; /* Slightly less on mobile but still adequate clearance */
-    scroll-margin-top: 110px;
+    padding-top: 100px; /* Mobile/tablet: only main bar visible */
+    scroll-margin-top: 100px;
   }
+}
+
+/* Prevent horizontal overflow on mobile */
+body {
+  overflow-x: hidden;
 }
 
 /* Smooth scrolling for all pages */
